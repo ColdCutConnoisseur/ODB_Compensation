@@ -39,6 +39,9 @@ TODO:  Zero financials -- still count as job count / do not sort out by gross pr
 
        -- These old jobs had 'cross reference' codes including 'IN, WI, IL' (from acculynx_api)
 
+[ ] On group relationships page, have 'change to' default to relationship and not N/A if the relationship exists
+[ ] Update Rewards Program page on tab change
+
 
 ## Considerations
 [ ] Only allow create_new group_relationship if 'sales_person_id' exists in sales_people table.

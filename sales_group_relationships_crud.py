@@ -114,3 +114,7 @@ def delete_group_relationship(database_name, sales_person_id):
     cur.close()
     conn.close()
 
+
+
+if __name__ == "__main__":
+    create_group_relationships_table(spc.DB_NAME)

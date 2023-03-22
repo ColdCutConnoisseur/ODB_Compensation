@@ -68,6 +68,12 @@ class Job:
         self.job_number = data_dict['jobNumber']
         self.sales_person_id = None
 
+        self._add_escape_character_to_job_name()
+
+    def _add_escape_character_to_job_name(self):
+        self.job_name = self.job_name.replace("'", "''")
+
+
 
 def DEPRget_jobs():
     endpoint = "/jobs"
@@ -131,7 +137,8 @@ def retrieve_representative_for_job_by_job_id(job_id):
         return as_json
 
     else:
-        print("Bad return in call to 'get_job_by_id_test'")
+        print("Bad return in call to 'retrieve_representative_for_job_by_job_id'")
+        print(r.text)
         return {}
 
 

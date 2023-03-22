@@ -19,8 +19,6 @@ def update_sales_people_table():
     cur.execute(f"SELECT * FROM {spc.TABLE_NAME};")
 
     records = cur.fetchall()
-    #print(f"Fetched records: {records}")
-    #print("Company Users per Acculynx:\n")
 
     users = get_all_company_users()
 
@@ -50,6 +48,23 @@ def update_sales_people_table():
     conn.commit()
     cur.close()
     conn.close()
+
+
+def return_sales_people_ids_and_names_as_dict():
+    db_creds = f"host={spc.HOST} dbname={spc.DB_NAME} user={spc.PGS_USER} password={spc.PASSWORD}"
+
+    conn = psycopg2.connect(db_creds)
+    cur = conn.cursor()
+
+    cur.execute(f"SELECT * FROM {spc.TABLE_NAME};")
+
+    records_list = cur.fetchall()
+
+    as_lists = [list(item) for item in records_list]
+
+    as_dict = {item[1] : item[0] for item in as_lists}
+
+    return as_dict
 
 
 if __name__ == "__main__":
