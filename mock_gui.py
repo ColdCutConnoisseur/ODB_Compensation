@@ -1,6 +1,7 @@
 import sys
+import time
 
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QStandardItemModel, QStandardItem
 from PyQt6.QtCore import QSize
 from PyQt6.QtWidgets import (QApplication,
                              QMainWindow,
@@ -14,14 +15,18 @@ from PyQt6.QtWidgets import (QApplication,
                              QTabWidget,
                              QPushButton,
                              QFrame,
-                             QCheckBox)
+                             QCheckBox,
+                             QTreeView)
 
 from sales_people_crud import update_sales_people_table, return_sales_people_ids_and_names_as_dict
 from sales_group_relationships_crud import (retrieve_group_relationship_by_sales_person,
                                             create_new_relationship,
                                             update_group_relationship,
-                                            delete_group_relationship)
-from jobs_crud import return_closed_jobs_count_for_employee
+                                            delete_group_relationship,
+                                            fetch_two_level_relationships,
+                                            fetch_all_people_one_level_down)
+from sales_person_attribs_crud import (retrieve_attributes_record, create_or_update_attributes_record)
+from utility_functions import fetch_current_job_count_for_contractor
 
 import sales_people_config as spc
 import gui_config
@@ -117,6 +122,96 @@ class CustomWindow(QMainWindow):
         gr_main_grid_layout.addWidget(self.delete_relationship_button, 8, 1, 1, 2)
 
         self.group_relationships_tab_widget.setLayout(gr_main_grid_layout)
+
+
+    def setUpSalesPersonAttribsTab(self):
+        self.sales_person_attribs_tab_widget = QWidget(self)
+
+        sp_main_grid_layout = QGridLayout()
+
+        sp_sales_person_dropdown_label = QLabel("Sales Person")
+
+        self.sp_sales_person_dropdown_select = QComboBox()
+        # Add Sales Person Names to dropdown
+        sales_people = list(self.sales_people_and_ids_dict.keys())
+        self.sp_sales_person_dropdown_select.addItems(sales_people)
+
+        self.sp_sales_person_dropdown_select.currentIndexChanged.connect(self.on_sp_sales_person_changed)
+
+        initial_job_count_label = QLabel("Initial Job Count")
+
+        self.sp_initial_job_count_display = QLineEdit()
+        self.sp_initial_job_count_display.setText(str(gui_config.ZERO_DEFAULT))
+
+        has_recruit_attrib_label = QLabel("Has Recruit(s)?")
+        self.sp_has_recruit_checkbox = QCheckBox()
+        self.sp_has_recruit_checkbox.setChecked(False)
+
+        tier_overwrite_label = QLabel("Rewards Program Tier Overwrite")
+
+        self.sp_tier_overwrite_dropdown = QComboBox()
+        tier_options = spc.ProgramTiers.TIER_OPTIONS
+        self.sp_tier_overwrite_dropdown.addItems(tier_options)
+
+        self.sp_tier_overwrite_display = QLineEdit()
+        self.sp_tier_overwrite_display.setReadOnly(True)
+        self.sp_tier_overwrite_display.setText(gui_config.DEFAULT_VALUE)
+
+        tier_overwrite_change_label = QLabel("Change Tier To")
+
+        self.sp_update_person_attributes_button = QPushButton("Create / Update")
+
+        self.sp_update_person_attributes_button.clicked.connect(self.on_sp_update_clicked)
+
+        sp_main_grid_layout.addWidget(sp_sales_person_dropdown_label, 0, 0)
+        sp_main_grid_layout.addWidget(self.sp_sales_person_dropdown_select, 0, 1)
+
+        sp_main_grid_layout.addWidget(initial_job_count_label, 1, 0)
+        sp_main_grid_layout.addWidget(self.sp_initial_job_count_display, 1, 1)
+
+        sp_main_grid_layout.addWidget(has_recruit_attrib_label, 2, 0)
+        sp_main_grid_layout.addWidget(self.sp_has_recruit_checkbox, 2, 1)
+
+        sp_main_grid_layout.addWidget(tier_overwrite_label, 3, 0)
+        sp_main_grid_layout.addWidget(self.sp_tier_overwrite_display, 3, 1)
+        sp_main_grid_layout.addWidget(tier_overwrite_change_label, 3, 2)
+        sp_main_grid_layout.addWidget(self.sp_tier_overwrite_dropdown, 3, 3)
+
+        sp_main_grid_layout.addWidget(self.sp_update_person_attributes_button, 4, 0, 1, 4)
+
+        self.sales_person_attribs_tab_widget.setLayout(sp_main_grid_layout)
+
+        self._refresh_person_attributes_page()
+
+    def setUpOrgChartTab(self):
+        self.org_tab_widget = QWidget(self)
+
+        self.org_sales_person_dropdown_select = QComboBox()
+        # Add Sales Person Names to dropdown
+        sales_people = list(self.sales_people_and_ids_dict.keys())
+        self.org_sales_person_dropdown_select.addItems(sales_people)
+
+        self.org_sales_person_dropdown_select.currentIndexChanged.connect(self.on_refresh_org_chart)
+
+        org_main_vertical_layout = QVBoxLayout()
+
+        dropdown_h_layout = QHBoxLayout()
+
+        self.tree_layout = QHBoxLayout()
+
+        self.org_tree = QTreeView()
+        self.org_tree.setHeaderHidden(True)
+
+        self.tree_layout.addWidget(self.org_tree)
+
+        dropdown_h_layout.addWidget(self.org_sales_person_dropdown_select)
+
+        org_main_vertical_layout.addLayout(dropdown_h_layout)
+        org_main_vertical_layout.addLayout(self.tree_layout)
+
+        self.org_tab_widget.setLayout(org_main_vertical_layout)
+
+        self.on_refresh_org_chart()
 
     
     def setUp(self):
@@ -222,8 +317,12 @@ class CustomWindow(QMainWindow):
         self.tab_widget.addTab(self.main_widget, "Rewards Program Data")
 
         self.setUpGroupRelationshipsTab()
+        self.setUpSalesPersonAttribsTab()
+        self.setUpOrgChartTab()
 
         self.tab_widget.addTab(self.group_relationships_tab_widget, "Edit Group Relationships")
+        self.tab_widget.addTab(self.sales_person_attribs_tab_widget, "Edit Sales Person Attributes")
+        self.tab_widget.addTab(self.org_tab_widget, "Org Chart")
 
         self.setCentralWidget(self.tab_widget)
 
@@ -352,7 +451,7 @@ class CustomWindow(QMainWindow):
 
         sales_person_id = self._return_attributable_id_for_name(current_sales_person)
 
-        num_completed_jobs = return_closed_jobs_count_for_employee(self.database_name, sales_person_id)
+        num_completed_jobs = fetch_current_job_count_for_contractor(self.database_name, sales_person_id)
 
         self.completed_jobs_display.setPlaceholderText(str(num_completed_jobs))
 
@@ -364,7 +463,7 @@ class CustomWindow(QMainWindow):
 
         else:
             group_lead_id = self._return_attributable_id_for_name(current_group_lead_name)
-            group_lead_completed_jobs = return_closed_jobs_count_for_employee(self.database_name, group_lead_id)
+            group_lead_completed_jobs = fetch_current_job_count_for_contractor(self.database_name, group_lead_id)
             self.group_lead_job_count_text.setPlaceholderText(str(group_lead_completed_jobs))
 
     def _update_legacy_group_lead_completed_jobs_count(self):
@@ -375,7 +474,7 @@ class CustomWindow(QMainWindow):
 
         else:
             legacy_lead_id = self._return_attributable_id_for_name(current_legacy_lead_name)
-            legacy_lead_completed_jobs = return_closed_jobs_count_for_employee(self.database_name, legacy_lead_id)
+            legacy_lead_completed_jobs = fetch_current_job_count_for_contractor(self.database_name, legacy_lead_id)
             self.legacy_group_lead_job_count_text.setPlaceholderText(str(legacy_lead_completed_jobs))
 
     def _update_team_closed_jobs_count(self):
@@ -402,6 +501,42 @@ class CustomWindow(QMainWindow):
         self._update_team_closed_jobs_count()
 
         self._calculate_and_update_current_program_tier()
+
+
+
+
+    def _sp_set_default_values_for_all_widgets(self):
+        self.sp_initial_job_count_display.setText(str(gui_config.ZERO_DEFAULT))
+        self.sp_has_recruit_checkbox.setChecked(False)
+        self.sp_tier_overwrite_display.setText(gui_config.DEFAULT_VALUE)
+
+
+    def _update_initial_job_count(self):
+        pass
+
+
+    def _refresh_person_attributes_page(self):
+        currently_selected_sales_person_name = self.sp_sales_person_dropdown_select.currentText()
+
+        sales_person_id =\
+            self._return_attributable_id_for_name(currently_selected_sales_person_name)
+
+        attribs_record = retrieve_attributes_record(self.database_name, sales_person_id)
+
+        if attribs_record is None:
+            self._sp_set_default_values_for_all_widgets()
+
+        else:
+            print(attribs_record)
+
+
+
+
+
+    def _delete_org_tree(self):
+        pass
+
+
 
 
     # SLOTS
@@ -459,6 +594,9 @@ class CustomWindow(QMainWindow):
 
         self._refresh_group_and_legacy_leads_displays_on_relationships_page()
 
+    def on_sp_sales_person_changed(self):
+        self._refresh_person_attributes_page()
+
     def on_gr_sales_person_changed(self):
         print("Sales person changed!")
         self._refresh_group_and_legacy_leads_displays_on_relationships_page()
@@ -467,6 +605,55 @@ class CustomWindow(QMainWindow):
         print("DEBUG: 'sales_person' changed on main tab")
         self._refresh_main_page()
         
+    def on_refresh_org_chart(self):
+        currently_selected_name = self.org_sales_person_dropdown_select.currentText()
+
+        sales_person_id = self._return_attributable_id_for_name(currently_selected_name)
+
+        children = fetch_all_people_one_level_down(self.database_name, sales_person_id)
+
+        tree_model = QStandardItemModel()
+        root_node = tree_model.invisibleRootItem()
+        
+        for ct, child in enumerate(children):
+            t_name = self._return_attributable_name_for_id(child)
+            
+            new_item = QStandardItem(t_name).setFont()
+            job_count = QStandardItem("19")
+            tier = QStandardItem("Tier Holder")
+
+            grandchildren = fetch_all_people_one_level_down(self.database_name, child)
+
+            for gc in grandchildren:
+                gc_name = self._return_attributable_name_for_id(gc)
+                gc_item = QStandardItem(gc_name)
+                gc_job_count = QStandardItem("GC Count")
+                gc_tier = QStandardItem("GC Tier")
+                new_item.appendRow([gc_item, gc_job_count, gc_tier])
+
+            root_node.appendRow([new_item, job_count, tier])
+
+        self.org_tree.setModel(tree_model)
+        self.org_tree.expandAll()
+
+    def on_sp_update_clicked(self):
+        current_sales_person_name = self.sp_sales_person_dropdown_select.currentText()
+
+        sales_person_id = self._return_attributable_id_for_name(current_sales_person_name)
+
+        new_job_count = int(self.sp_initial_job_count_display.text())
+
+        recruit_update = self.sp_has_recruit_checkbox.isChecked()
+
+        tier_ow = self.sp_tier_overwrite_dropdown.currentText()
+
+        if tier_ow == gui_config.DEFAULT_VALUE:
+            tier_ow = None
+
+        create_or_update_attributes_record(self.database_name, sales_person_id,
+            initial_job_count=new_job_count, has_recruit=recruit_update, rewards_tier_overwrite=tier_ow)
+
+            
 
 app = QApplication(sys.argv)
 

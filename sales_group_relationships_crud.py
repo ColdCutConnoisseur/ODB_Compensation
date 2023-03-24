@@ -114,7 +114,59 @@ def delete_group_relationship(database_name, sales_person_id):
     cur.close()
     conn.close()
 
+# QUERIES
+def unique_values(input_list):
+    unique = list(set(input_list))
+    return unique
+
+def fetch_all_people_one_level_down(database_name, sales_person_id):
+    conn = connect_to_db(database_name)
+    cur = conn.cursor()
+
+    # Query where sales person is legacy_lead
+    leg_lead_query = "SELECT GROUP_LEAD_ID FROM group_relationships WHERE LEGACY_GROUP_LEAD_ID = %s;"
+
+    cur.execute(leg_lead_query, [sales_person_id])
+
+    fetched_group_leads = cur.fetchall()
+
+    fetched_group_leads = unique_values([list(tup)[0] for tup in fetched_group_leads])
+
+    # Any relationships where sales_person_id is GROUP_LEAD_ID
+    group_lead_query = "SELECT SALES_PERSON_ID FROM group_relationships WHERE GROUP_LEAD_ID = %s;"
+
+    cur.execute(group_lead_query, [sales_person_id])
+
+    fetched_sales_people = cur.fetchall()
+
+    fetched_sales_people = unique_values([list(tup)[0] for tup in fetched_sales_people])
+
+    combined_list = fetched_group_leads + fetched_sales_people
+
+    combined_list = unique_values(combined_list)
+
+    return combined_list
+
+def fetch_two_level_relationships(database_name, sales_person_id):
+    children = fetch_all_people_one_level_down(database_name, sales_person_id)
+
+    grandchildren = []
+
+    for child in children:
+        fetched_grandchildren = fetch_all_people_one_level_down(database_name, child)
+        grandchildren += fetched_grandchildren
+
+    # Remove Dupes
+    grandchildren = unique_values(grandchildren)
+    return [children, grandchildren]
+
 
 
 if __name__ == "__main__":
     create_group_relationships_table(spc.DB_NAME)
+
+    # Testing
+    c, g = fetch_two_level_relationships(spc.DB_NAME, "c7e723c3-9fe1-47a4-99dd-ddc6a66448bc")
+
+    print(c)
+    print(g)

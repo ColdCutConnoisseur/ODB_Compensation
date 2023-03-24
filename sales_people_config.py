@@ -27,3 +27,6 @@ class ProgramTiers:
     TIER_4 = "Tier 4"
     TIER_5 = "Tier 5"
     TIER_6 = "Tier 6"
+
+    TIER_OPTIONS = ["N/A", "Tier 1a", "Tier 1b", "Tier 1c", "Tier 2",
+                    "Tier 3", "Tier 4", "Tier 5", "Tier 6"]

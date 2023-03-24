@@ -142,23 +142,6 @@ def retrieve_representative_for_job_by_job_id(job_id):
         return {}
 
 
-
-def follow_link():
-    # GOOD CALL FOR GETTING REP NAME
-    link = 'https://api.acculynx.com/api/v2/users/e5e96861-f5a8-41d2-ad5b-b420f3c0d15c'
-
-    r = requests.get(link, auth=AcculynxAuth())
-
-    if r.status_code == 200:
-        as_json = r.json()
-        return as_json
-
-    else:
-        print("Bad return in call to 'get_job_by_id_test'")
-        return {}
-
-
-
 def get_all_company_users():
     endpoint = '/users'
 
@@ -190,6 +173,7 @@ def get_all_company_users():
 
             if results_counter >= num_results_per_api:
                 assert len(list(results.keys())) == int(num_results_per_api), "Incorrect amount of 'Users' pulled!"
+                print(results)
                 return results
 
         else:
@@ -239,6 +223,49 @@ def get_all_closed_jobs_short_date_range():
         else:
             print("Bad return in call to 'get_all_closed_jobs'")
             return []
+
+def get_all_closed_jobs_since_observe_date():
+    """Only fetch jobs since date of initial job count for sales people"""
+    endpoint = "/jobs"
+
+    results_counter = 0
+    results = []
+
+    should_call = True
+
+    while should_call:
+
+        parameters = {
+            'pageSize' : DEF_NUM_RESULTS,
+            'pageStartIndex' : results_counter,
+            'startDate' : '2023-03-23',
+            'dateFilterType' : 'MilestoneDate',
+            'milestones' : 'closed'
+        }
+
+        r = requests.get(ACCULYNX_API_BASE_URL + endpoint, params=parameters, auth=AcculynxAuth())
+
+        if r.status_code == 200:
+            as_json = r.json()
+
+            # Combine results in 'results' dict
+            result_items = as_json['items']
+            addl_jobs = [Job(item) for item in result_items]
+
+            results += addl_jobs                                             # NOTE: Dupe checking?
+
+            results_counter += DEF_NUM_RESULTS
+
+            num_results_per_api = as_json['count']
+
+            if results_counter >= num_results_per_api:
+                assert len(results) == int(num_results_per_api), "Incorrect amount of 'Closed Jobs' pulled!"
+                return results
+
+        else:
+            print("Bad return in call to 'get_all_closed_jobs'")
+            return []
+
 
 def get_all_closed_jobs():
     endpoint = "/jobs"
