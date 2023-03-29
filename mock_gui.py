@@ -271,10 +271,6 @@ class CustomWindow(QMainWindow):
         self.unprocessed_jobs_list = QComboBox()
 
         self.unprocessed_jobs_list.currentIndexChanged.connect(self.on_unprocessed_jobs_selection_change)
-        #self.unprocessed_jobs_list = QListView()
-        #self.unprocessed_jobs_model = QStandardItemModel()
-        #self.unprocessed_jobs_list.setModel(self.unprocessed_jobs_model)
-        #self.unprocessed_jobs_list.clicked[QModelIndex].connect(self.on_up_jobs_list_clicked)
 
         gross_profit_label = QLabel("Gross Profit")
         self.gross_profit_amount = QLineEdit()
@@ -294,6 +290,9 @@ class CustomWindow(QMainWindow):
         self.legacy_lead_payable_amount = QLineEdit()
         self.legacy_lead_payable_amount.setReadOnly(True)
         self.legacy_lead_payable_amount.setText(str(gui_config.ZERO_DEFAULT))
+
+        self.mark_job_as_processed_button = QPushButton("Mark Job as 'Processed'")
+        self.mark_job_as_processed_button.clicked.connect(self.on_update_job_as_processed_button_clicked)
 
         self.main_grid_layout.addWidget(sales_person_dropdown_label, 0, 0)
         self.main_grid_layout.addWidget(self.sales_person_dropdown_select, 0, 1, 1, 2)
@@ -316,11 +315,11 @@ class CustomWindow(QMainWindow):
         self.main_grid_layout.addWidget(self.group_lead_name_text, 11, 2)
         self.main_grid_layout.addWidget(legacy_group_lead_label, 12, 1)
         self.main_grid_layout.addWidget(self.legacy_group_lead_name_text, 12, 2)
-
         self.main_grid_layout.addWidget(group_lead_payable_label, 13, 1)
         self.main_grid_layout.addWidget(self.group_lead_payable_amount, 13, 2)
         self.main_grid_layout.addWidget(legacy_lead_payable_label, 14, 1)
         self.main_grid_layout.addWidget(self.legacy_lead_payable_amount, 14, 2)
+        self.main_grid_layout.addWidget(self.mark_job_as_processed_button, 15, 1, 2, 2)
         
         self.main_widget = QWidget()
         self.main_widget.setLayout(self.main_grid_layout)
@@ -801,6 +800,14 @@ class CustomWindow(QMainWindow):
 
     def on_job_eligibility_changed(self):
         self.on_gross_profit_text_changed()
+
+    def on_update_job_as_processed_button_clicked(self):
+        print("Job Updated!")
+        
+        # update_job_as_processed(database_name, job_number, group_lead_payout_amount, legacy_lead_payout_amount)
+
+
+
 
 app = QApplication(sys.argv)
 

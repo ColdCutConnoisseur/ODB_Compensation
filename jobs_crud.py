@@ -211,6 +211,23 @@ def return_unprocessed_jobs(database_name):
 
     return unprocessed_jobs
 
+def update_job_as_processed(database_name, job_number, group_lead_payout_amount, legacy_lead_payout_amount):
+    job_number = int(job_number)
+
+    conn = connect_to_db(database_name)
+    cur = conn.cursor()
+
+    update_job_statement = """UPDATE closed_jobs
+                              SET GROUP_LEAD_PAYOUT = %s, LEGACY_LEAD_PAYOUT = %s, PROCESSED_FOR_PAYOUT = %s
+                              WHERE JOB_NUMBER = %s"""
+
+    cur.execute(update_job_statement, [group_lead_payout_amount, legacy_lead_payout_amount, True, job_number])
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
 
 if __name__ == "__main__":
     # drop_jobs_table(spc.DB_NAME)
