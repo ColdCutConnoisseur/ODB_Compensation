@@ -245,26 +245,26 @@ class CustomWindow(QMainWindow):
         completed_jobs_label = QLabel("Num Completed Jobs:")
         self.completed_jobs_display = QLineEdit()
         self.completed_jobs_display.setReadOnly(True)
-        self.completed_jobs_display.setPlaceholderText(str(gui_config.ZERO_DEFAULT))
+        self.completed_jobs_display.setText(str(gui_config.ZERO_DEFAULT))
         has_direct_recruit_label = QLabel("Has Direct Recruit(s)?")
         self.direct_recruit_checkbox = QCheckBox()
         self.direct_recruit_checkbox.setChecked(False)
         team_total_jobs_label = QLabel("Team Jobs Closed:")
         self.team_job_count_text = QLineEdit()
-        self.team_job_count_text.setPlaceholderText(str(gui_config.ZERO_DEFAULT))
+        self.team_job_count_text.setText(str(gui_config.ZERO_DEFAULT))
         self.team_job_count_text.setReadOnly(True)
         current_compensation_label = QLabel("Current Compensation Tier:")
         self.current_reward_tier_display = QLineEdit()
         self.current_reward_tier_display.setReadOnly(True)
-        self.current_reward_tier_display.setPlaceholderText(spc.ProgramTiers.TIER_1A)
+        self.current_reward_tier_display.setText(spc.ProgramTiers.TIER_1A)
 
         group_lead_label = QLabel("Group Lead")
         legacy_group_lead_label = QLabel("Legacy Group Lead")
         self.group_lead_name_text = QLineEdit()
-        self.group_lead_name_text.setPlaceholderText(gui_config.DEFAULT_VALUE)
+        self.group_lead_name_text.setText(gui_config.DEFAULT_VALUE)
         self.group_lead_name_text.setReadOnly(True)
         self.legacy_group_lead_name_text = QLineEdit()
-        self.legacy_group_lead_name_text.setPlaceholderText(gui_config.DEFAULT_VALUE)
+        self.legacy_group_lead_name_text.setText(gui_config.DEFAULT_VALUE)
         self.legacy_group_lead_name_text.setReadOnly(True)
 
         unprocessed_jobs_label = QLabel("Unprocessed Jobs")
@@ -368,10 +368,10 @@ class CustomWindow(QMainWindow):
         return test_val
 
     def _set_group_lead_text_main_page(self, new_group_lead):
-        self.group_lead_name_text.setPlaceholderText(new_group_lead)
+        self.group_lead_name_text.setText(new_group_lead)
 
     def _set_legacy_group_lead_text_main_page(self, new_legacy_lead):
-        self.legacy_group_lead_name_text.setPlaceholderText(new_legacy_lead)
+        self.legacy_group_lead_name_text.setText(new_legacy_lead)
 
     def _refresh_group_and_legacy_leads_displays_on_main_page(self):
         current_sales_person = self._get_currently_selected_sales_person_main_page()
@@ -476,7 +476,7 @@ class CustomWindow(QMainWindow):
 
         team_job_count = fetch_team_job_count(self.database_name, sales_person_id)
 
-        self.team_job_count_text.setPlaceholderText(str(team_job_count))
+        self.team_job_count_text.setText(str(team_job_count))
 
         return team_job_count
 
@@ -505,7 +505,7 @@ class CustomWindow(QMainWindow):
                             num_closed_team_jobs,
                             has_direct_recruit)
 
-        self.current_reward_tier_display.setPlaceholderText(abs_tier)
+        self.current_reward_tier_display.setText(abs_tier)
 
     def _update_unprocessed_jobs_list(self):
         # update_jobs_table(self.database_name)
