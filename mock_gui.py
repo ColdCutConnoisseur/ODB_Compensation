@@ -31,7 +31,7 @@ from utility_functions import (fetch_current_job_count_for_contractor,
                                fetch_team_job_count,
                                calculate_reward_payouts_for_job)
 from tier_classifier import revise_compensation_tier_based_on_overwrite
-from jobs_crud import update_jobs_table, return_unprocessed_jobs
+from jobs_crud import update_jobs_table, return_unprocessed_jobs, update_job_as_processed
 
 import sales_people_config as spc
 import gui_config
@@ -763,8 +763,10 @@ class CustomWindow(QMainWindow):
 
         # Check for empty 'gross profit'
         if job_gross_profit == '':
-            print("job_gross_profit is empty")
-            print(0, 0)
+            print("job_gross_profit is empty") # DEBUG
+            print(0, 0) # DEBUG
+            self.group_lead_payable_amount.setText(gui_config.ZERO_DEFAULT)
+            self.legacy_lead_payable_amount.setText(gui_config.ZERO_DEFAULT)
 
         else:
             is_job_eligible = self.job_eligible_checkbox.isChecked()
@@ -796,15 +798,25 @@ class CustomWindow(QMainWindow):
                                                         job_gross_profit
             )
 
-            print(group_lead_payout, legacy_lead_payout)
+            print(group_lead_payout, legacy_lead_payout) # DEBUG
+
+            formatted_group_lead_amount = f"{group_lead_payout:.2f}"
+            formatted_legacy_lead_amount = f"{legacy_lead_payout:.2f}"
+
+            self.group_lead_payable_amount.setText(formatted_group_lead_amount)
+            self.legacy_lead_payable_amount.setText(formatted_legacy_lead_amount)
 
     def on_job_eligibility_changed(self):
         self.on_gross_profit_text_changed()
 
     def on_update_job_as_processed_button_clicked(self):
-        print("Job Updated!")
+        print("Job Updated!") #DEBUG
+
+        job_number = self.unprocessed_jobs_list.currentText()  # To int on 'update' call
+        group_lead_payout_amount = float(self.group_lead_payable_amount.text())
+        legacy_lead_payout_amount = float(self.legacy_lead_payable_amount.text())
         
-        # update_job_as_processed(database_name, job_number, group_lead_payout_amount, legacy_lead_payout_amount)
+        update_job_as_processed(self.database_name, job_number, group_lead_payout_amount, legacy_lead_payout_amount)
 
 
 
