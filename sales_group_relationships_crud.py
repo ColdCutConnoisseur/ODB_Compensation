@@ -145,6 +145,9 @@ def fetch_all_people_one_level_down(database_name, sales_person_id):
 
     combined_list = unique_values(combined_list)
 
+    cur.close()
+    conn.close()
+
     return combined_list
 
 def fetch_two_level_relationships(database_name, sales_person_id):
@@ -160,7 +163,52 @@ def fetch_two_level_relationships(database_name, sales_person_id):
     grandchildren = unique_values(grandchildren)
     return [children, grandchildren]
 
+def fetch_sales_person_and_group_lead_where_contractor_is_legacy(database_name, sales_person_id):
+    conn = connect_to_db(database_name)
+    cur = conn.cursor()
 
+    # Query where sales person id is legacy_lead
+    leg_lead_query = "SELECT SALES_PERSON_ID, GROUP_LEAD_ID FROM group_relationships WHERE LEGACY_GROUP_LEAD_ID = %s;"
+
+    cur.execute(leg_lead_query, [sales_person_id])
+
+    fetched_team_ids = cur.fetchall()
+
+    fetched_team_ids = unique_values([list(tup)[0] for tup in fetched_team_ids])
+
+    cur.close()
+    conn.close()
+
+    return fetched_team_ids
+
+def fetch_sales_person_where_contractor_is_group_lead(database_name, sales_person_id):
+    conn = connect_to_db(database_name)
+    cur = conn.cursor()
+
+    # Query where sales person id is group_lead
+    group_lead_query = "SELECT SALES_PERSON_ID FROM group_relationships WHERE GROUP_LEAD_ID = %s;"
+
+    cur.execute(group_lead_query, [sales_person_id])
+
+    fetched_team_ids = cur.fetchall()
+
+    fetched_team_ids = unique_values([list(tup)[0] for tup in fetched_team_ids])
+
+    cur.close()
+    conn.close()
+
+    return fetched_team_ids
+
+def return_team_ids_for_counting_team_jobs(database_name, sales_person_id):
+    as_legacy = fetch_sales_person_and_group_lead_where_contractor_is_legacy(database_name, sales_person_id)
+    as_group_lead = fetch_sales_person_where_contractor_is_group_lead(database_name, sales_person_id)
+
+    combined_list = as_legacy + as_group_lead
+
+    combined_list = unique_values(combined_list)
+
+    return combined_list
+    
 
 if __name__ == "__main__":
     create_group_relationships_table(spc.DB_NAME)

@@ -70,9 +70,10 @@ def create_or_update_attributes_record(database_name, sales_person_id,
     elif existing_record:
 
         sql_statement = "UPDATE sales_person_attribs "+\
-                        "SET INITIAL_JOB_COUNT=%s, HAS_RECRUIT=%s, REWARDS_TIER_OVERWRITE=%s"
+                        "SET INITIAL_JOB_COUNT=%s, HAS_RECRUIT=%s, REWARDS_TIER_OVERWRITE=%s "+\
+                        "WHERE SALES_PERSON_ID = %s"
 
-        cur.execute(sql_statement, [initial_job_count, has_recruit, rewards_tier_overwrite])
+        cur.execute(sql_statement, [initial_job_count, has_recruit, rewards_tier_overwrite, sales_person_id])
 
     conn.commit()
     cur.close()
@@ -103,6 +104,52 @@ def return_contractor_initial_job_count(database_name, sales_person_id):
     conn.close()
 
     return returned_record
+
+
+def return_contractor_rewards_tier_overwrite(database_name, sales_person_id):
+    conn = connect_to_db(database_name)
+
+    cur = conn.cursor()
+
+    query = "SELECT REWARDS_TIER_OVERWRITE FROM sales_person_attribs " +\
+            "WHERE SALES_PERSON_ID = %s"
+
+    cur.execute(query, [sales_person_id])
+
+    returned_record = cur.fetchone()
+
+    if returned_record is not None:
+        returned_record = list(returned_record)[0]
+
+    cur.close()
+    conn.close()
+
+    return returned_record
+
+
+def return_contractor_has_direct_recruit(database_name, sales_person_id):
+    conn = connect_to_db(database_name)
+
+    cur = conn.cursor()
+
+    query = "SELECT HAS_RECRUIT FROM sales_person_attribs " +\
+            "WHERE SALES_PERSON_ID = %s"
+
+    cur.execute(query, [sales_person_id])
+
+    returned_record = cur.fetchone()
+
+    if returned_record is not None:
+        returned_record = list(returned_record)[0]
+
+    elif returned_record is None:
+        returned_record = False
+
+    cur.close()
+    conn.close()
+
+    return returned_record
+
 
 
 

@@ -12,7 +12,6 @@ PASSWORD = os.environ['PGS_PW']
 
 # DB Tables
 TABLE_NAME = "sales_people"
-# DEPR GROUPS_TABLE_NAME = "group_relationships"
 
 # Testing
 TEST_DB_NAME = "test_odb"
@@ -30,3 +29,13 @@ class ProgramTiers:
 
     TIER_OPTIONS = ["N/A", "Tier 1a", "Tier 1b", "Tier 1c", "Tier 2",
                     "Tier 3", "Tier 4", "Tier 5", "Tier 6"]
+
+    TIER_PAYOUTS = {
+        "Tier 1a" : [0.15, 0.05],
+        "Tier 1b" : [0.15, 0.05],
+        "Tier 1c" : [0.15, 0.05],
+        "Tier 2"  : [0.10, 0.05],
+        "Tier 3"  : [0.10, 0.05],
+        "Tier 4"  : [0.10, 0.05],
+        "Tier 5"  : [0.05, 0.00]
+    }

@@ -1,9 +1,7 @@
-"""NOTE: You will have to add in logic / functionality for overwritten promotions"""
-
-
+"""Functionality for returning current Rewards Program Tier for contractors"""
 
 import sales_people_config as spc
-
+from sales_person_attribs_crud import return_contractor_rewards_tier_overwrite
 
 def return_reward_tier_for_sales_person(num_closed_contractor_jobs, num_closed_team_jobs, has_direct_recruit):
     """Given num closed personal / team jobs, return the appropriate comp tier"""
@@ -33,7 +31,27 @@ def return_reward_tier_for_sales_person(num_closed_contractor_jobs, num_closed_t
 
 
 
-def revise_compensation_tier_based_on_overwrite():
-    """FUTURE ADD-IN: Make sure that the comp tier is at minimum the overwritten level"""
-    pass
+def revise_compensation_tier_based_on_overwrite(database_name, contractor_id, num_closed_contractor_jobs,
+            num_closed_team_jobs, has_direct_recruit):
+    """Make sure that the comp tier is at minimum the overwritten level (if one exists)"""
+    natural_tier = return_reward_tier_for_sales_person(num_closed_contractor_jobs,
+                                                       num_closed_team_jobs, has_direct_recruit)
+    
+    contractor_overwrite = return_contractor_rewards_tier_overwrite(database_name, contractor_id)
+
+    if contractor_overwrite is None:
+        return natural_tier
+
+    else:
+        return_tier = natural_tier
+
+        # Comparison
+        natural_index = spc.ProgramTiers.TIER_OPTIONS.index(natural_tier)
+        overwrite_index = spc.ProgramTiers.TIER_OPTIONS.index(contractor_overwrite)
+
+        if overwrite_index > natural_index:
+            return_tier = contractor_overwrite
+
+        return return_tier
+
 

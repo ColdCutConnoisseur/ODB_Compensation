@@ -199,12 +199,12 @@ def return_unprocessed_jobs(database_name):
     conn = connect_to_db(database_name)
     cur = conn.cursor()
 
-    unprocessed_jobs_query = """SELECT JOB_NUMBER FROM closed_jobs
+    unprocessed_jobs_query = """SELECT JOB_NUMBER, SALES_PERSON_ID FROM closed_jobs
                                 WHERE PROCESSED_FOR_PAYOUT = %s"""
 
     cur.execute(unprocessed_jobs_query, [False])
 
-    unprocessed_jobs = [list(tup)[0] for tup in cur.fetchall()]
+    unprocessed_jobs = [list(tup) for tup in cur.fetchall()]
 
     cur.close()
     conn.close()

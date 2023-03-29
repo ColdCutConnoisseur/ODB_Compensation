@@ -2,7 +2,7 @@ import sys
 import time
 
 from PyQt6.QtGui import QFont, QStandardItemModel, QStandardItem
-from PyQt6.QtCore import QSize
+from PyQt6.QtCore import QSize, QModelIndex
 from PyQt6.QtWidgets import (QApplication,
                              QMainWindow,
                              QWidget,
@@ -14,19 +14,24 @@ from PyQt6.QtWidgets import (QApplication,
                              QLineEdit,
                              QTabWidget,
                              QPushButton,
-                             QFrame,
                              QCheckBox,
-                             QTreeView)
+                             QTreeView,
+                             QListView)
 
 from sales_people_crud import update_sales_people_table, return_sales_people_ids_and_names_as_dict
 from sales_group_relationships_crud import (retrieve_group_relationship_by_sales_person,
                                             create_new_relationship,
                                             update_group_relationship,
                                             delete_group_relationship,
-                                            fetch_two_level_relationships,
                                             fetch_all_people_one_level_down)
-from sales_person_attribs_crud import (retrieve_attributes_record, create_or_update_attributes_record)
-from utility_functions import fetch_current_job_count_for_contractor
+from sales_person_attribs_crud import (retrieve_attributes_record,
+                                       create_or_update_attributes_record,
+                                       return_contractor_has_direct_recruit)
+from utility_functions import (fetch_current_job_count_for_contractor,
+                               fetch_team_job_count,
+                               calculate_reward_payouts_for_job)
+from tier_classifier import revise_compensation_tier_based_on_overwrite
+from jobs_crud import update_jobs_table, return_unprocessed_jobs
 
 import sales_people_config as spc
 import gui_config
@@ -42,6 +47,8 @@ class CustomWindow(QMainWindow):
         self.setWindowTitle("ODB Compensation Calculator")
         self.setMinimumSize(QSize(900, 600))
         # .setMaximumSize()
+
+        self.unprocessed_job_mapping = {}
 
         self.setUp()
 
@@ -74,8 +81,8 @@ class CustomWindow(QMainWindow):
         group_lead_section_label = QLabel("Group Lead")
         legacy_lead_section_label = QLabel("Legacy Group Lead")
 
-        gr_main_grid_layout.addWidget(group_lead_section_label, 2, 1)
-        gr_main_grid_layout.addWidget(legacy_lead_section_label, 2, 3)
+        gr_main_grid_layout.addWidget(group_lead_section_label, 1, 1)
+        gr_main_grid_layout.addWidget(legacy_lead_section_label, 1, 3)
 
         current_group_lead_label = QLabel("Current Group Lead")
         self.gr_current_group_lead_text = QLineEdit(gui_config.DEFAULT_VALUE)
@@ -85,10 +92,10 @@ class CustomWindow(QMainWindow):
         self.gr_group_lead_dropdown = QComboBox()
         self.gr_group_lead_dropdown.addItems(self.names_list_w_na)
 
-        gr_main_grid_layout.addWidget(current_group_lead_label, 3, 0)
-        gr_main_grid_layout.addWidget(self.gr_current_group_lead_text, 3, 1)
-        gr_main_grid_layout.addWidget(change_to_group_lead_label, 4, 0)
-        gr_main_grid_layout.addWidget(self.gr_group_lead_dropdown, 4, 1)
+        gr_main_grid_layout.addWidget(current_group_lead_label, 2, 0)
+        gr_main_grid_layout.addWidget(self.gr_current_group_lead_text, 2, 1)
+        gr_main_grid_layout.addWidget(change_to_group_lead_label, 3, 0)
+        gr_main_grid_layout.addWidget(self.gr_group_lead_dropdown, 3, 1)
 
         current_legacy_lead_label = QLabel("Current Legacy Lead")
         self.gr_current_legacy_lead_text = QLineEdit(gui_config.DEFAULT_VALUE)
@@ -98,10 +105,10 @@ class CustomWindow(QMainWindow):
         self.gr_legacy_group_lead_dropdown = QComboBox()
         self.gr_legacy_group_lead_dropdown.addItems(self.names_list_w_na)
 
-        gr_main_grid_layout.addWidget(current_legacy_lead_label, 3, 2)
-        gr_main_grid_layout.addWidget(self.gr_current_legacy_lead_text, 3, 3)
-        gr_main_grid_layout.addWidget(change_to_legacy_lead_label, 4, 2)
-        gr_main_grid_layout.addWidget(self.gr_legacy_group_lead_dropdown, 4, 3)
+        gr_main_grid_layout.addWidget(current_legacy_lead_label, 2, 2)
+        gr_main_grid_layout.addWidget(self.gr_current_legacy_lead_text, 2, 3)
+        gr_main_grid_layout.addWidget(change_to_legacy_lead_label, 3, 2)
+        gr_main_grid_layout.addWidget(self.gr_legacy_group_lead_dropdown, 3, 3)
 
         self.create_relationship_button = QPushButton("CREATE")
         self.update_relationship_button = QPushButton("UPDATE")
@@ -117,12 +124,15 @@ class CustomWindow(QMainWindow):
         self.update_relationship_button.clicked.connect(self.update_relationship_button_clicked)
         self.delete_relationship_button.clicked.connect(self.delete_relationship_button_clicked)
 
-        gr_main_grid_layout.addWidget(self.create_relationship_button, 6, 1, 1, 2)
-        gr_main_grid_layout.addWidget(self.update_relationship_button, 7, 1, 1, 2)
-        gr_main_grid_layout.addWidget(self.delete_relationship_button, 8, 1, 1, 2)
+        gr_main_grid_layout.addWidget(self.create_relationship_button, 4, 3, 1, 1)
+        gr_main_grid_layout.addWidget(self.update_relationship_button, 5, 3, 1, 1)
+        gr_main_grid_layout.addWidget(self.delete_relationship_button, 6, 3, 1, 1)
+
+        gr_main_grid_layout.setRowStretch(0, 10)
+        gr_main_grid_layout.setRowStretch(1, 0)
+
 
         self.group_relationships_tab_widget.setLayout(gr_main_grid_layout)
-
 
     def setUpSalesPersonAttribsTab(self):
         self.sales_person_attribs_tab_widget = QWidget(self)
@@ -200,7 +210,7 @@ class CustomWindow(QMainWindow):
         self.tree_layout = QHBoxLayout()
 
         self.org_tree = QTreeView()
-        self.org_tree.setHeaderHidden(True)
+        self.org_tree.setHeaderHidden(False)
 
         self.tree_layout.addWidget(self.org_tree)
 
@@ -213,14 +223,13 @@ class CustomWindow(QMainWindow):
 
         self.on_refresh_org_chart()
 
-    
     def setUp(self):
         update_sales_people_table()
+        update_jobs_table(self.database_name)
+
         self.sales_people_and_ids_dict = return_sales_people_ids_and_names_as_dict()
 
-        self.main_vertical_layout = QVBoxLayout()
-
-        self.sales_person_select_h_layout = QHBoxLayout()
+        self.main_grid_layout = QGridLayout()
 
         sales_person_dropdown_label = QLabel("Sales Person")
         self.sales_person_dropdown_select = QComboBox()
@@ -231,53 +240,7 @@ class CustomWindow(QMainWindow):
 
         self.sales_person_dropdown_select.currentIndexChanged.connect(self.on_main_page_sales_person_changed)
 
-        self.sales_person_select_h_layout.addWidget(sales_person_dropdown_label)
-        self.sales_person_select_h_layout.addWidget(self.sales_person_dropdown_select)
-
-        self.group_relationships_summary_layout = QGridLayout()
-
-        group_lead_label = QLabel("Group Lead")
-        legacy_group_lead_label = QLabel("Legacy Group Lead")
-        group_lead_job_count_label = QLabel("Group Lead Completed Jobs:")
-        legacy_lead_job_count_label = QLabel("Legacy Lead Completed Jobs:")
-        team_total_jobs_label = QLabel("Team Jobs Closed:")
-
-        self.group_lead_name_text = QLineEdit()
-        self.group_lead_name_text.setPlaceholderText(gui_config.DEFAULT_VALUE)
-        self.group_lead_name_text.setReadOnly(True)
-
-        self.legacy_group_lead_name_text = QLineEdit()
-        self.legacy_group_lead_name_text.setPlaceholderText(gui_config.DEFAULT_VALUE)
-        self.legacy_group_lead_name_text.setReadOnly(True)
-
-        self.group_lead_job_count_text = QLineEdit()
-        self.group_lead_job_count_text.setPlaceholderText(str(gui_config.ZERO_DEFAULT))
-        self.group_lead_job_count_text.setReadOnly(True)
-
-        self.legacy_group_lead_job_count_text = QLineEdit()
-        self.legacy_group_lead_job_count_text.setPlaceholderText(str(gui_config.ZERO_DEFAULT))
-        self.legacy_group_lead_job_count_text.setReadOnly(True)
-
-        self.team_job_count_text = QLineEdit()
-        self.team_job_count_text.setPlaceholderText(str(gui_config.ZERO_DEFAULT))
-        self.team_job_count_text.setReadOnly(True)
-
-        self.group_relationships_summary_layout.addWidget(group_lead_label, 0, 0)
-        self.group_relationships_summary_layout.addWidget(self.group_lead_name_text, 0, 1)
-        self.group_relationships_summary_layout.addWidget(group_lead_job_count_label, 0, 2)
-        self.group_relationships_summary_layout.addWidget(self.group_lead_job_count_text, 0, 3)
-        
-        self.group_relationships_summary_layout.addWidget(legacy_group_lead_label, 1, 0)
-        self.group_relationships_summary_layout.addWidget(self.legacy_group_lead_name_text, 1, 1)
-        self.group_relationships_summary_layout.addWidget(legacy_lead_job_count_label, 1, 2)
-        self.group_relationships_summary_layout.addWidget(self.legacy_group_lead_job_count_text, 1, 3)
-
-        self.group_relationships_summary_layout.addWidget(team_total_jobs_label, 2, 2)
-        self.group_relationships_summary_layout.addWidget(self.team_job_count_text, 2, 3)
-
         # Summary Data
-        self.sales_person_summary_data_layout = QGridLayout()
-        
         summary_header = QLabel("Summary")
         completed_jobs_label = QLabel("Num Completed Jobs:")
         self.completed_jobs_display = QLineEdit()
@@ -286,35 +249,85 @@ class CustomWindow(QMainWindow):
         has_direct_recruit_label = QLabel("Has Direct Recruit(s)?")
         self.direct_recruit_checkbox = QCheckBox()
         self.direct_recruit_checkbox.setChecked(False)
+        team_total_jobs_label = QLabel("Team Jobs Closed:")
+        self.team_job_count_text = QLineEdit()
+        self.team_job_count_text.setPlaceholderText(str(gui_config.ZERO_DEFAULT))
+        self.team_job_count_text.setReadOnly(True)
         current_compensation_label = QLabel("Current Compensation Tier:")
         self.current_reward_tier_display = QLineEdit()
         self.current_reward_tier_display.setReadOnly(True)
         self.current_reward_tier_display.setPlaceholderText(spc.ProgramTiers.TIER_1A)
 
-        self.sales_person_summary_data_layout.addWidget(summary_header, 0, 0, 1, 1)
-        self.sales_person_summary_data_layout.addWidget(completed_jobs_label, 1, 3, 1, 1)
-        self.sales_person_summary_data_layout.addWidget(self.completed_jobs_display, 1, 4, 1, 1)
-        self.sales_person_summary_data_layout.addWidget(has_direct_recruit_label, 2, 3, 1, 1)
-        self.sales_person_summary_data_layout.addWidget(self.direct_recruit_checkbox, 2, 4, 1, 1)
-        self.sales_person_summary_data_layout.addWidget(current_compensation_label, 3, 3, 1, 1)
-        self.sales_person_summary_data_layout.addWidget(self.current_reward_tier_display, 3, 4, 1, 1)
+        group_lead_label = QLabel("Group Lead")
+        legacy_group_lead_label = QLabel("Legacy Group Lead")
+        self.group_lead_name_text = QLineEdit()
+        self.group_lead_name_text.setPlaceholderText(gui_config.DEFAULT_VALUE)
+        self.group_lead_name_text.setReadOnly(True)
+        self.legacy_group_lead_name_text = QLineEdit()
+        self.legacy_group_lead_name_text.setPlaceholderText(gui_config.DEFAULT_VALUE)
+        self.legacy_group_lead_name_text.setReadOnly(True)
 
-        # Nest Layouts
-        self.main_vertical_layout.addLayout(self.sales_person_select_h_layout)
-        self.main_vertical_layout.addLayout(self.sales_person_summary_data_layout)
-        self.main_vertical_layout.addLayout(self.group_relationships_summary_layout)
+        unprocessed_jobs_label = QLabel("Unprocessed Jobs")
+        self.unprocessed_jobs_list = QComboBox()
 
+        self.unprocessed_jobs_list.currentIndexChanged.connect(self.on_unprocessed_jobs_selection_change)
+        #self.unprocessed_jobs_list = QListView()
+        #self.unprocessed_jobs_model = QStandardItemModel()
+        #self.unprocessed_jobs_list.setModel(self.unprocessed_jobs_model)
+        #self.unprocessed_jobs_list.clicked[QModelIndex].connect(self.on_up_jobs_list_clicked)
+
+        gross_profit_label = QLabel("Gross Profit")
+        self.gross_profit_amount = QLineEdit()
+
+        self.gross_profit_amount.textChanged.connect(self.on_gross_profit_text_changed)
+
+        job_eligible_label = QLabel("Job Eligible For Program?")
+        self.job_eligible_checkbox = QCheckBox()
+        self.job_eligible_checkbox.stateChanged.connect(self.on_job_eligibility_changed)
+
+        group_lead_payable_label = QLabel("Payable -- Group Lead")
+        self.group_lead_payable_amount = QLineEdit()
+        self.group_lead_payable_amount.setReadOnly(True)
+        self.group_lead_payable_amount.setText(str(gui_config.ZERO_DEFAULT))
+
+        legacy_lead_payable_label = QLabel("Payable -- Legacy Lead")
+        self.legacy_lead_payable_amount = QLineEdit()
+        self.legacy_lead_payable_amount.setReadOnly(True)
+        self.legacy_lead_payable_amount.setText(str(gui_config.ZERO_DEFAULT))
+
+        self.main_grid_layout.addWidget(sales_person_dropdown_label, 0, 0)
+        self.main_grid_layout.addWidget(self.sales_person_dropdown_select, 0, 1, 1, 2)
+        self.main_grid_layout.addWidget(unprocessed_jobs_label, 1, 0)
+        self.main_grid_layout.addWidget(self.unprocessed_jobs_list, 1, 1)
+        self.main_grid_layout.addWidget(gross_profit_label, 2, 1)
+        self.main_grid_layout.addWidget(self.gross_profit_amount, 2, 2)
+        self.main_grid_layout.addWidget(job_eligible_label, 3, 1)
+        self.main_grid_layout.addWidget(self.job_eligible_checkbox, 3, 2)
+        self.main_grid_layout.addWidget(summary_header, 6, 0)
+        self.main_grid_layout.addWidget(completed_jobs_label, 7, 1)
+        self.main_grid_layout.addWidget(self.completed_jobs_display, 7, 2)
+        self.main_grid_layout.addWidget(has_direct_recruit_label, 8, 1)
+        self.main_grid_layout.addWidget(self.direct_recruit_checkbox, 8, 2)
+        self.main_grid_layout.addWidget(team_total_jobs_label, 9, 1)
+        self.main_grid_layout.addWidget(self.team_job_count_text, 9, 2)
+        self.main_grid_layout.addWidget(current_compensation_label, 10, 1)
+        self.main_grid_layout.addWidget(self.current_reward_tier_display, 10, 2)
+        self.main_grid_layout.addWidget(group_lead_label, 11, 1)
+        self.main_grid_layout.addWidget(self.group_lead_name_text, 11, 2)
+        self.main_grid_layout.addWidget(legacy_group_lead_label, 12, 1)
+        self.main_grid_layout.addWidget(self.legacy_group_lead_name_text, 12, 2)
+
+        self.main_grid_layout.addWidget(group_lead_payable_label, 13, 1)
+        self.main_grid_layout.addWidget(self.group_lead_payable_amount, 13, 2)
+        self.main_grid_layout.addWidget(legacy_lead_payable_label, 14, 1)
+        self.main_grid_layout.addWidget(self.legacy_lead_payable_amount, 14, 2)
+        
         self.main_widget = QWidget()
-        self.main_widget.setLayout(self.main_vertical_layout)
-
-        #summary_frame = QFrame(self.main_widget)
-        #summary_frame.setFrameShape(QFrame.StyledPanel)
-        #summary_frame.setGeometry(200, 200, 200, 200)
-        #summary_frame.setStyleSheet("background-color: white;")
+        self.main_widget.setLayout(self.main_grid_layout)
 
         self.tab_widget = QTabWidget()
         # self.tab_widget.setTabPosition(QTabWidget.TabPosition.West)
-        self.tab_widget.addTab(self.main_widget, "Rewards Program Data")
+        self.tab_widget.addTab(self.main_widget, "Rewards Calculator")
 
         self.setUpGroupRelationshipsTab()
         self.setUpSalesPersonAttribsTab()
@@ -453,67 +466,106 @@ class CustomWindow(QMainWindow):
 
         num_completed_jobs = fetch_current_job_count_for_contractor(self.database_name, sales_person_id)
 
-        self.completed_jobs_display.setPlaceholderText(str(num_completed_jobs))
+        self.completed_jobs_display.setText(str(num_completed_jobs))
 
-    def _update_group_lead_completed_jobs_count(self):
-        current_group_lead_name = self.group_lead_name_text.placeholderText()
-        
-        if current_group_lead_name == gui_config.DEFAULT_VALUE:
-            self.group_lead_job_count_text.setPlaceholderText(str(gui_config.ZERO_DEFAULT))
-
-        else:
-            group_lead_id = self._return_attributable_id_for_name(current_group_lead_name)
-            group_lead_completed_jobs = fetch_current_job_count_for_contractor(self.database_name, group_lead_id)
-            self.group_lead_job_count_text.setPlaceholderText(str(group_lead_completed_jobs))
-
-    def _update_legacy_group_lead_completed_jobs_count(self):
-        current_legacy_lead_name = self.legacy_group_lead_name_text.placeholderText()
-
-        if current_legacy_lead_name == gui_config.DEFAULT_VALUE:
-            self.legacy_group_lead_job_count_text.setPlaceholderText(str(gui_config.ZERO_DEFAULT))
-
-        else:
-            legacy_lead_id = self._return_attributable_id_for_name(current_legacy_lead_name)
-            legacy_lead_completed_jobs = fetch_current_job_count_for_contractor(self.database_name, legacy_lead_id)
-            self.legacy_group_lead_job_count_text.setPlaceholderText(str(legacy_lead_completed_jobs))
+        return num_completed_jobs
 
     def _update_team_closed_jobs_count(self):
-        sales_person_job_count = int(self.completed_jobs_display.placeholderText())
-        group_lead_job_count = int(self.group_lead_job_count_text.placeholderText())
-        legacy_lead_job_count = int(self.legacy_group_lead_job_count_text.placeholderText())
+        current_sales_person = self._get_currently_selected_sales_person_main_page()
 
-        jobs_sum = sales_person_job_count + group_lead_job_count + legacy_lead_job_count
+        sales_person_id = self._return_attributable_id_for_name(current_sales_person)
 
-        self.team_job_count_text.setPlaceholderText(str(jobs_sum))
+        team_job_count = fetch_team_job_count(self.database_name, sales_person_id)
 
-    def _calculate_and_update_current_program_tier(self):
-        pass
+        self.team_job_count_text.setPlaceholderText(str(team_job_count))
+
+        return team_job_count
+
+    def _update_direct_recruit_checkbox(self):
+        current_sales_person = self._get_currently_selected_sales_person_main_page()
+
+        sales_person_id = self._return_attributable_id_for_name(current_sales_person)
+
+        has_direct_recruit = return_contractor_has_direct_recruit(self.database_name, sales_person_id)
+
+        # Update checkbox
+        self.direct_recruit_checkbox.setChecked(has_direct_recruit)
+
+        return has_direct_recruit
+
+    def _calculate_and_update_current_program_tier(self, num_closed_contractor_jobs, num_closed_team_jobs,
+            has_direct_recruit):
+        current_sales_person = self._get_currently_selected_sales_person_main_page()
+
+        sales_person_id = self._return_attributable_id_for_name(current_sales_person)
+
+        abs_tier = revise_compensation_tier_based_on_overwrite(
+                            self.database_name,
+                            sales_person_id,
+                            num_closed_contractor_jobs,
+                            num_closed_team_jobs,
+                            has_direct_recruit)
+
+        self.current_reward_tier_display.setPlaceholderText(abs_tier)
+
+    def _update_unprocessed_jobs_list(self):
+        # update_jobs_table(self.database_name)
+        unprocessed_jobs = return_unprocessed_jobs(self.database_name)
+
+        self.unprocessed_job_mapping.clear()
+        self.unprocessed_job_mapping = {up_job[0] : up_job[1] for up_job in unprocessed_jobs}
+
+        jobs_as_strings = [str(j_num) for j_num in self.unprocessed_job_mapping.keys()]
+
+        self.unprocessed_jobs_list.clear()
+        self.unprocessed_jobs_list.addItems(jobs_as_strings)
 
     def _refresh_main_page(self):
+        self._update_unprocessed_jobs_list()
+
+        # Automatically switch to sales_person for first unhandled_job
+        if len(list(self.unprocessed_job_mapping.keys())) > 0:
+            # Change index for sales person
+            current_job_num = int(self.unprocessed_jobs_list.currentText())
+
+            job_sales_person_id = self.unprocessed_job_mapping[current_job_num]
+
+            select_index = 0
+
+            for ct, sales_person_id in enumerate(self.sales_people_and_ids_dict.values()):
+                if sales_person_id == job_sales_person_id:
+                    select_index = ct
+                    break
+
+            self.sales_person_dropdown_select.setCurrentIndex(select_index)
+
         self._refresh_group_and_legacy_leads_displays_on_main_page()
 
-        self._update_completed_jobs_count()
+        num_completed_jobs = self._update_completed_jobs_count()
 
-        self._update_group_lead_completed_jobs_count()
+        num_team_jobs = self._update_team_closed_jobs_count()
 
-        self._update_legacy_group_lead_completed_jobs_count()
+        has_direct_recruit = self._update_direct_recruit_checkbox()
 
-        self._update_team_closed_jobs_count()
-
-        self._calculate_and_update_current_program_tier()
-
-
-
+        self._calculate_and_update_current_program_tier(num_completed_jobs, num_team_jobs, has_direct_recruit)
 
     def _sp_set_default_values_for_all_widgets(self):
         self.sp_initial_job_count_display.setText(str(gui_config.ZERO_DEFAULT))
         self.sp_has_recruit_checkbox.setChecked(False)
         self.sp_tier_overwrite_display.setText(gui_config.DEFAULT_VALUE)
 
+    def _update_initial_job_count_display_attribs_tab(self, initial_jobs_count):
+        self.sp_initial_job_count_display.setText(str(initial_jobs_count))
 
-    def _update_initial_job_count(self):
-        pass
+    def _update_has_recruits_display_attribs_tab(self, has_recruit_attrib):
+        self.sp_has_recruit_checkbox.setChecked(has_recruit_attrib)
 
+    def _update_rewards_tier_overwrite_attribs_tab(self, rewards_tier):
+        if rewards_tier is None:
+            self.sp_tier_overwrite_display.setText(gui_config.DEFAULT_VALUE)
+        
+        else:
+            self.sp_tier_overwrite_display.setText(rewards_tier)
 
     def _refresh_person_attributes_page(self):
         currently_selected_sales_person_name = self.sp_sales_person_dropdown_select.currentText()
@@ -529,13 +581,15 @@ class CustomWindow(QMainWindow):
         else:
             print(attribs_record)
 
+            as_list = list(attribs_record)
 
+            initial_jobs_count = as_list[1]
+            has_recruit_attrib = as_list[2]
+            rewards_tier = as_list[3]
 
-
-
-    def _delete_org_tree(self):
-        pass
-
+            self._update_initial_job_count_display_attribs_tab(initial_jobs_count)
+            self._update_has_recruits_display_attribs_tab(has_recruit_attrib)
+            self._update_rewards_tier_overwrite_attribs_tab(rewards_tier)
 
 
 
@@ -602,7 +656,6 @@ class CustomWindow(QMainWindow):
         self._refresh_group_and_legacy_leads_displays_on_relationships_page()
         
     def on_main_page_sales_person_changed(self):
-        print("DEBUG: 'sales_person' changed on main tab")
         self._refresh_main_page()
         
     def on_refresh_org_chart(self):
@@ -614,27 +667,65 @@ class CustomWindow(QMainWindow):
 
         tree_model = QStandardItemModel()
         root_node = tree_model.invisibleRootItem()
+
+        parent_sales_person_name = QStandardItem(currently_selected_name)
+        parent_ind_jobs_count = fetch_current_job_count_for_contractor(self.database_name, sales_person_id)
+        parent_team_jobs_count = fetch_team_job_count(self.database_name, sales_person_id)
+        parent_has_recruit = return_contractor_has_direct_recruit(self.database_name, sales_person_id)
+        parent_current_tier = revise_compensation_tier_based_on_overwrite(self.database_name, sales_person_id,
+                                                        parent_ind_jobs_count, parent_team_jobs_count,
+                                                        parent_has_recruit)
+
+        root_row = [parent_sales_person_name,
+                    QStandardItem(str(parent_ind_jobs_count)),
+                    QStandardItem(str(parent_team_jobs_count)),
+                    QStandardItem(parent_current_tier)]
+
+        root_node.appendRow(root_row)
         
-        for ct, child in enumerate(children):
+        for child in children:
             t_name = self._return_attributable_name_for_id(child)
+
+            individual_job_count = fetch_current_job_count_for_contractor(self.database_name, child)
+            team_job_count = fetch_team_job_count(self.database_name, child)
+            has_direct_recruit = return_contractor_has_direct_recruit(self.database_name, child)
+
+            current_tier = revise_compensation_tier_based_on_overwrite(self.database_name, child,
+                                                        individual_job_count, team_job_count,
+                                                        has_direct_recruit)
             
-            new_item = QStandardItem(t_name).setFont()
-            job_count = QStandardItem("19")
-            tier = QStandardItem("Tier Holder")
+            new_item = QStandardItem(t_name)
+            job_count = QStandardItem(str(individual_job_count))
+            team_jobs = QStandardItem(str(team_job_count))
+            tier = QStandardItem(current_tier)
+
+            child_row = [new_item, job_count, team_jobs, tier]
+
+            parent_sales_person_name.appendRow(child_row)
 
             grandchildren = fetch_all_people_one_level_down(self.database_name, child)
 
             for gc in grandchildren:
                 gc_name = self._return_attributable_name_for_id(gc)
-                gc_item = QStandardItem(gc_name)
-                gc_job_count = QStandardItem("GC Count")
-                gc_tier = QStandardItem("GC Tier")
-                new_item.appendRow([gc_item, gc_job_count, gc_tier])
 
-            root_node.appendRow([new_item, job_count, tier])
+                gc_job_count_fetch = fetch_current_job_count_for_contractor(self.database_name, gc)
+                gc_team_job_count_fetch = fetch_team_job_count(self.database_name, gc)
+                gc_has_recruit_fetch = return_contractor_has_direct_recruit(self.database_name, gc)
+
+                gc_current_tier = revise_compensation_tier_based_on_overwrite(self.database_name, gc,
+                                                            gc_job_count_fetch, gc_team_job_count_fetch,
+                                                            gc_has_recruit_fetch)
+
+                gc_item = QStandardItem(gc_name)
+                gc_job_count = QStandardItem(str(gc_job_count_fetch))
+                gc_team_job_count = QStandardItem(str(gc_team_job_count_fetch))
+                gc_tier = QStandardItem(gc_current_tier)
+
+                new_item.appendRow([gc_item, gc_job_count, gc_team_job_count, gc_tier])
 
         self.org_tree.setModel(tree_model)
         self.org_tree.expandAll()
+        self.org_tree.setColumnWidth(0, 400)
 
     def on_sp_update_clicked(self):
         current_sales_person_name = self.sp_sales_person_dropdown_select.currentText()
@@ -653,7 +744,63 @@ class CustomWindow(QMainWindow):
         create_or_update_attributes_record(self.database_name, sales_person_id,
             initial_job_count=new_job_count, has_recruit=recruit_update, rewards_tier_overwrite=tier_ow)
 
+        self._refresh_person_attributes_page()
+
+    def DEPRon_up_jobs_list_clicked(self, click_index):
+        job_num_object = self.unprocessed_jobs_model.itemFromIndex(click_index)
+        job_num = job_num_object.text()
+
+        associated_contractor_id = self.unprocessed_job_mapping[int(job_num)]
+
+        print(associated_contractor_id)
+
+        self.sales_person_dropdown_select.setCurrentIndex(5)
+
+    def on_unprocessed_jobs_selection_change(self):
+        print(self.unprocessed_jobs_list.currentText())
+
+    def on_gross_profit_text_changed(self):
+        job_gross_profit = self.gross_profit_amount.text()
+
+        # Check for empty 'gross profit'
+        if job_gross_profit == '':
+            print("job_gross_profit is empty")
+            print(0, 0)
+
+        else:
+            is_job_eligible = self.job_eligible_checkbox.isChecked()
+
+            current_group_lead_name = self.group_lead_name_text.text()
+            current_legacy_lead_name = self.legacy_group_lead_name_text.text()
+
+            # Translate 'N/A' values to None type
+            if current_group_lead_name == gui_config.DEFAULT_VALUE:
+                current_group_lead_name = None
+
+            if current_legacy_lead_name == gui_config.DEFAULT_VALUE:
+                current_legacy_lead_name = None
+
+            group_lead_id = None
+            legacy_lead_id = None
+
+            if current_group_lead_name is not None:
+                group_lead_id = self._return_attributable_id_for_name(current_group_lead_name)
             
+            if current_legacy_lead_name is not None:
+                legacy_lead_id = self._return_attributable_id_for_name(current_legacy_lead_name)
+
+            group_lead_payout, legacy_lead_payout = calculate_reward_payouts_for_job(
+                                                        is_job_eligible,
+                                                        self.database_name,
+                                                        group_lead_id,
+                                                        legacy_lead_id,
+                                                        job_gross_profit
+            )
+
+            print(group_lead_payout, legacy_lead_payout)
+
+    def on_job_eligibility_changed(self):
+        self.on_gross_profit_text_changed()
 
 app = QApplication(sys.argv)
 
@@ -661,5 +808,5 @@ DATABASE = spc.DB_NAME
 
 window = CustomWindow(DATABASE)
 
-# Start the event loop.
+# Start the event loop
 app.exec()
