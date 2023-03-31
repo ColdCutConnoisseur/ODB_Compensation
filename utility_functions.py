@@ -38,7 +38,7 @@ def fetch_team_job_count(database_name, contractor_id):
 
 
 
-def calculate_reward_payouts_for_job(is_job_eligible, database_name, group_lead_id, legacy_lead_id, job_gross_profit):
+def DEPRcalculate_reward_payouts_for_job(is_job_eligible, database_name, group_lead_id, legacy_lead_id, job_gross_profit):
     """
     
 

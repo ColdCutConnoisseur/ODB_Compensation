@@ -1,5 +1,6 @@
 import sys
 import time
+from decimal import Decimal
 
 from PyQt6.QtGui import QFont, QStandardItemModel, QStandardItem
 from PyQt6.QtCore import QSize, QModelIndex
@@ -28,8 +29,7 @@ from sales_person_attribs_crud import (retrieve_attributes_record,
                                        create_or_update_attributes_record,
                                        return_contractor_has_direct_recruit)
 from utility_functions import (fetch_current_job_count_for_contractor,
-                               fetch_team_job_count,
-                               calculate_reward_payouts_for_job)
+                               fetch_team_job_count)
 from tier_classifier import revise_compensation_tier_based_on_overwrite
 from jobs_crud import update_jobs_table, return_unprocessed_jobs, update_job_as_processed
 
@@ -37,14 +37,15 @@ import sales_people_config as spc
 import gui_config
 
 class CustomWindow(QMainWindow):
-    def __init__(self, database):
+    def __init__(self, database, app_name_text="ODB Compensation Calculator"):
         super().__init__()
 
         self.database_name = database
+        self.app_name_text = app_name_text
 
         self.sales_people_and_ids_dict = {}
 
-        self.setWindowTitle("ODB Compensation Calculator")
+        self.setWindowTitle(self.app_name_text)
         self.setMinimumSize(QSize(900, 600))
         # .setMaximumSize()
 
@@ -224,10 +225,10 @@ class CustomWindow(QMainWindow):
         self.on_refresh_org_chart()
 
     def setUp(self):
-        update_sales_people_table()
+        update_sales_people_table(self.database_name)
         update_jobs_table(self.database_name)
 
-        self.sales_people_and_ids_dict = return_sales_people_ids_and_names_as_dict()
+        self.sales_people_and_ids_dict = return_sales_people_ids_and_names_as_dict(self.database_name)
 
         self.main_grid_layout = QGridLayout()
 
@@ -341,6 +342,9 @@ class CustomWindow(QMainWindow):
         self._refresh_group_and_legacy_leads_displays_on_relationships_page()
 
         self._refresh_main_page()
+
+        self._update_unprocessed_jobs_list()
+        self._change_to_appropriate_sales_person_for_unprocessed_job()
 
 
     def _get_currently_selected_sales_person_main_page(self):
@@ -508,7 +512,7 @@ class CustomWindow(QMainWindow):
         self.current_reward_tier_display.setText(abs_tier)
 
     def _update_unprocessed_jobs_list(self):
-        # update_jobs_table(self.database_name)
+        print("DEBUG: Updating unprocessed jobs list...")
         unprocessed_jobs = return_unprocessed_jobs(self.database_name)
 
         self.unprocessed_job_mapping.clear()
@@ -516,15 +520,23 @@ class CustomWindow(QMainWindow):
 
         jobs_as_strings = [str(j_num) for j_num in self.unprocessed_job_mapping.keys()]
 
+        print("Call to 'clear'")
         self.unprocessed_jobs_list.clear()
+        print("Call made successfully!")
+
+        print("Callt to add items...")
         self.unprocessed_jobs_list.addItems(jobs_as_strings)
+        print("Items added!")
 
-    def _refresh_main_page(self):
-        self._update_unprocessed_jobs_list()
+        print(f"JOB COUNT: {self.unprocessed_jobs_list.count()}")
 
+        print("DEBUG: JOBS LIST UPDATED!")
+
+    def _change_to_appropriate_sales_person_for_unprocessed_job(self):
         # Automatically switch to sales_person for first unhandled_job
         if len(list(self.unprocessed_job_mapping.keys())) > 0:
             # Change index for sales person
+
             current_job_num = int(self.unprocessed_jobs_list.currentText())
 
             job_sales_person_id = self.unprocessed_job_mapping[current_job_num]
@@ -537,6 +549,8 @@ class CustomWindow(QMainWindow):
                     break
 
             self.sales_person_dropdown_select.setCurrentIndex(select_index)
+
+    def _refresh_main_page(self):
 
         self._refresh_group_and_legacy_leads_displays_on_main_page()
 
@@ -745,19 +759,13 @@ class CustomWindow(QMainWindow):
 
         self._refresh_person_attributes_page()
 
-    def DEPRon_up_jobs_list_clicked(self, click_index):
-        job_num_object = self.unprocessed_jobs_model.itemFromIndex(click_index)
-        job_num = job_num_object.text()
-
-        associated_contractor_id = self.unprocessed_job_mapping[int(job_num)]
-
-        print(associated_contractor_id)
-
-        self.sales_person_dropdown_select.setCurrentIndex(5)
-
     def on_unprocessed_jobs_selection_change(self):
-        print(self.unprocessed_jobs_list.currentText())
+        if self.unprocessed_jobs_list.currentText() == '':
+            pass
 
+        else:
+            self._change_to_appropriate_sales_person_for_unprocessed_job()
+        
     def on_gross_profit_text_changed(self):
         job_gross_profit = self.gross_profit_amount.text()
 
@@ -765,11 +773,42 @@ class CustomWindow(QMainWindow):
         if job_gross_profit == '':
             print("job_gross_profit is empty") # DEBUG
             print(0, 0) # DEBUG
-            self.group_lead_payable_amount.setText(gui_config.ZERO_DEFAULT)
-            self.legacy_lead_payable_amount.setText(gui_config.ZERO_DEFAULT)
+            self.group_lead_payable_amount.setText(str(gui_config.ZERO_DEFAULT))
+            self.legacy_lead_payable_amount.setText(str(gui_config.ZERO_DEFAULT))
 
         else:
             is_job_eligible = self.job_eligible_checkbox.isChecked()
+
+            if is_job_eligible:
+
+                contractor_current_tier = self.current_reward_tier_display.text()
+                tier_payouts = spc.ProgramTiers.TIER_PAYOUTS[contractor_current_tier]
+
+                group_lead_payout = Decimal(tier_payouts[0]) * Decimal(job_gross_profit)
+                legacy_lead_payout = Decimal(tier_payouts[1]) * Decimal(job_gross_profit)
+
+                current_group_lead_name = self.group_lead_name_text.text()
+                current_legacy_lead_name = self.legacy_group_lead_name_text.text()
+
+                if current_group_lead_name == gui_config.DEFAULT_VALUE:
+                    self.group_lead_payable_amount.setText(str(gui_config.ZERO_DEFAULT))
+
+                else:
+                    self.group_lead_payable_amount.setText(f"{group_lead_payout:.2f}")
+
+                if current_legacy_lead_name == gui_config.DEFAULT_VALUE:
+                    self.legacy_lead_payable_amount.setText(str(gui_config.ZERO_DEFAULT))
+
+                else:
+                    self.legacy_lead_payable_amount.setText(f"{legacy_lead_payout:.2f}")
+
+            else:
+                self.group_lead_payable_amount.setText(str(gui_config.ZERO_DEFAULT))
+                self.legacy_lead_payable_amount.setText(str(gui_config.ZERO_DEFAULT))
+
+
+
+            """
 
             current_group_lead_name = self.group_lead_name_text.text()
             current_legacy_lead_name = self.legacy_group_lead_name_text.text()
@@ -805,12 +844,13 @@ class CustomWindow(QMainWindow):
 
             self.group_lead_payable_amount.setText(formatted_group_lead_amount)
             self.legacy_lead_payable_amount.setText(formatted_legacy_lead_amount)
+            """
 
     def on_job_eligibility_changed(self):
         self.on_gross_profit_text_changed()
 
     def on_update_job_as_processed_button_clicked(self):
-        print("Job Updated!") #DEBUG
+        print("Updating job...") #DEBUG
 
         job_number = self.unprocessed_jobs_list.currentText()  # To int on 'update' call
         group_lead_payout_amount = float(self.group_lead_payable_amount.text())
@@ -818,14 +858,19 @@ class CustomWindow(QMainWindow):
         
         update_job_as_processed(self.database_name, job_number, group_lead_payout_amount, legacy_lead_payout_amount)
 
+        print("Job Updated!") #DEBUG
+
+        self._update_unprocessed_jobs_list()
+        #self._change_to_appropriate_sales_person_for_unprocessed_job()
 
 
+if __name__ == "__main__":
 
-app = QApplication(sys.argv)
+    app = QApplication(sys.argv)
 
-DATABASE = spc.DB_NAME
+    DATABASE = spc.DB_NAME
 
-window = CustomWindow(DATABASE)
+    window = CustomWindow(DATABASE)
 
-# Start the event loop
-app.exec()
+    # Start the event loop
+    app.exec()
