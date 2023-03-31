@@ -5,8 +5,8 @@ class ReturnTypes:
     RecordAlreadyExists = 'RecordAlreadyExists'
 
 # DB Stuff
-DB_NAME = "ODB_DB"
-HOST = "localhost"
+DB_NAME = "odb_compensation_database" #"ODB_DB"    *These were local configs
+HOST = os.environ["AWS_ADD"]          #"localhost"
 PGS_USER = "postgres"
 PASSWORD = os.environ['PGS_PW']
 

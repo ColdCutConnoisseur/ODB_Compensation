@@ -8,8 +8,20 @@ def connect_to_test_db():
     conn = psycopg2.connect(db_creds)
     return conn
 
-def setup_test_group_relationships_table():
-    conn = connect_to_test_db()
+def connect_to_cloud_db():
+    db_creds = f"host={spc.HOST} dbname={spc.DB_NAME} user={spc.PGS_USER} password={spc.PASSWORD}"
+    conn = psycopg2.connect(db_creds)
+    return conn
+
+
+def setup_group_relationships_table(test_or_live="TEST"):
+    conn = None
+
+    if test_or_live == "TEST":
+        conn = connect_to_test_db()
+
+    elif test_or_live == "LIVE":
+        conn = connect_to_cloud_db()
 
     cur = conn.cursor()
 
@@ -52,8 +64,14 @@ def setup_test_group_relationships_table():
     conn.close()
 
 
-def setup_test_sales_person_attribs_table():
-    conn = connect_to_test_db()
+def setup_sales_person_attribs_table(test_or_live="TEST"):
+    conn = None
+
+    if test_or_live == "TEST":
+        conn = connect_to_test_db()
+
+    elif test_or_live == "LIVE":
+        conn = connect_to_cloud_db()
 
     cur = conn.cursor()
 
@@ -125,6 +143,6 @@ def create_fake_jobs():
     conn.close()
 
 if __name__ == "__main__":
-    #setup_test_group_relationships_table()
-    #setup_test_sales_person_attribs_table()
-    create_fake_jobs()
+    #setup_group_relationships_table(test_or_live="LIVE")
+    setup_sales_person_attribs_table(test_or_live="LIVE")
+    #create_fake_jobs()

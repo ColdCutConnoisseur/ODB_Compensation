@@ -99,7 +99,7 @@ def run_initial_setup_for_closed_jobs_table(database_name):
                               LEGACY_LEAD_PAYOUT,
                               PROCESSED_FOR_PAYOUT
                             )
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"""
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"""
 
     # Connect to DB
     conn = connect_to_db(database_name)
