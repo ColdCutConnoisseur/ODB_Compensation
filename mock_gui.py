@@ -855,8 +855,23 @@ class CustomWindow(QMainWindow):
         job_number = self.unprocessed_jobs_list.currentText()  # To int on 'update' call
         group_lead_payout_amount = float(self.group_lead_payable_amount.text())
         legacy_lead_payout_amount = float(self.legacy_lead_payable_amount.text())
-        
-        update_job_as_processed(self.database_name, job_number, group_lead_payout_amount, legacy_lead_payout_amount)
+        current_group_lead_name = self.group_lead_name_text.text()
+        current_legacy_lead_name = self.legacy_group_lead_name_text.text()
+
+        if current_group_lead_name == gui_config.DEFAULT_VALUE:
+            group_lead_id = None
+
+        else:
+            group_lead_id = self._return_attributable_id_for_name(current_group_lead_name)
+
+        if current_legacy_lead_name == gui_config.DEFAULT_VALUE:
+            legacy_lead_id = None
+
+        else:
+            legacy_lead_id = self._return_attributable_id_for_name(current_legacy_lead_name)
+
+        update_job_as_processed(self.database_name, job_number, group_lead_id,
+            group_lead_payout_amount, legacy_lead_id, legacy_lead_payout_amount)
 
         print("Job Updated!") #DEBUG
 

@@ -39,7 +39,9 @@ def create_closed_jobs_table(database_name):
                   JOB_ID varchar(255),
                   JOB_NUMBER int,
                   SALES_PERSON_ID varchar(255),
+                  GROUP_LEAD_ID varchar(255),
                   GROUP_LEAD_PAYOUT numeric,
+                  LEGACY_LEAD_ID varchar(255),
                   LEGACY_LEAD_PAYOUT numeric,
                   PROCESSED_FOR_PAYOUT boolean
                 );""")
@@ -91,7 +93,9 @@ def run_initial_setup_for_closed_jobs_table(database_name):
                               JOB_ID,
                               JOB_NUMBER,
                               SALES_PERSON_ID,
+                              GROUP_LEAD_ID,
                               GROUP_LEAD_PAYOUT,
+                              LEGACY_LEAD_ID,
                               LEGACY_LEAD_PAYOUT,
                               PROCESSED_FOR_PAYOUT
                             )
@@ -115,7 +119,7 @@ def run_initial_setup_for_closed_jobs_table(database_name):
                     unhandled_job.milestone_date, unhandled_job.modified_date,
                     unhandled_job.current_milestone, unhandled_job.job_name,
                     unhandled_job.job_id, unhandled_job.job_number,
-                    unhandled_job.sales_person_id, None, None, False]
+                    unhandled_job.sales_person_id, None, None, None, None, False]
 
         cur.execute(insert_sql_statement, job_args)
 
@@ -211,17 +215,19 @@ def return_unprocessed_jobs(database_name):
 
     return unprocessed_jobs
 
-def update_job_as_processed(database_name, job_number, group_lead_payout_amount, legacy_lead_payout_amount):
+def update_job_as_processed(database_name, job_number, group_lead_id,
+            group_lead_payout_amount, legacy_lead_id, legacy_lead_payout_amount):
     job_number = int(job_number)
 
     conn = connect_to_db(database_name)
     cur = conn.cursor()
 
     update_job_statement = """UPDATE closed_jobs
-                              SET GROUP_LEAD_PAYOUT = %s, LEGACY_LEAD_PAYOUT = %s, PROCESSED_FOR_PAYOUT = %s
+                              SET GROUP_LEAD_ID = %s, GROUP_LEAD_PAYOUT = %s, LEGACY_LEAD_ID = %s, 
+                              LEGACY_LEAD_PAYOUT = %s, PROCESSED_FOR_PAYOUT = %s
                               WHERE JOB_NUMBER = %s"""
 
-    cur.execute(update_job_statement, [group_lead_payout_amount, legacy_lead_payout_amount, True, job_number])
+    cur.execute(update_job_statement, [group_lead_id, group_lead_payout_amount, legacy_lead_id, legacy_lead_payout_amount, True, job_number])
 
     conn.commit()
     cur.close()
