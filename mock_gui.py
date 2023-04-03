@@ -17,7 +17,8 @@ from PyQt6.QtWidgets import (QApplication,
                              QPushButton,
                              QCheckBox,
                              QTreeView,
-                             QListView)
+                             QSpacerItem,
+                             QSizePolicy)
 
 from sales_people_crud import update_sales_people_table, return_sales_people_ids_and_names_as_dict
 from sales_group_relationships_crud import (retrieve_group_relationship_by_sales_person,
@@ -51,6 +52,17 @@ class CustomWindow(QMainWindow):
 
         self.unprocessed_job_mapping = {}
 
+        self.bold_font = QFont()
+        self.bold_font.setBold(True)
+
+        self.bold_and_spaced = QFont()
+        self.bold_and_spaced.setBold(True)
+        self.bold_and_spaced.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 3)
+
+        self.big_and_bold_font = QFont()
+        self.big_and_bold_font.setBold(True)
+        self.big_and_bold_font.setPixelSize(19)
+
         self.setUp()
 
         self.show()
@@ -66,6 +78,8 @@ class CustomWindow(QMainWindow):
         gr_main_grid_layout = QGridLayout()
 
         gr_sales_person_dropdown_label = QLabel("Sales Person")
+        gr_sales_person_dropdown_label.setFont(self.big_and_bold_font)
+        gr_sales_person_dropdown_label.setFixedSize(200, 200)
 
         gr_main_grid_layout.addWidget(gr_sales_person_dropdown_label, 0, 0)
 
@@ -79,17 +93,22 @@ class CustomWindow(QMainWindow):
 
         gr_main_grid_layout.addWidget(self.gr_sales_person_dropdown_select, 0, 1)
 
-        group_lead_section_label = QLabel("Group Lead")
-        legacy_lead_section_label = QLabel("Legacy Group Lead")
+        group_lead_section_label = QLabel("DIRECT LEAD")
+        group_lead_section_label.setFont(self.bold_and_spaced)
+        group_lead_section_label.setFixedSize(200, 50)
 
-        gr_main_grid_layout.addWidget(group_lead_section_label, 1, 1)
-        gr_main_grid_layout.addWidget(legacy_lead_section_label, 1, 3)
+        legacy_lead_section_label = QLabel("SECOND LEAD")
+        legacy_lead_section_label.setFont(self.bold_and_spaced)
+        legacy_lead_section_label.setFixedSize(200, 50)
 
-        current_group_lead_label = QLabel("Current Group Lead")
+        gr_main_grid_layout.addWidget(group_lead_section_label, 1, 0)
+        gr_main_grid_layout.addWidget(legacy_lead_section_label, 1, 2)
+
+        current_group_lead_label = QLabel("Current Direct Lead")
         self.gr_current_group_lead_text = QLineEdit(gui_config.DEFAULT_VALUE)
         self.gr_current_group_lead_text.setReadOnly(True)
         
-        change_to_group_lead_label = QLabel("Change Group Lead To")
+        change_to_group_lead_label = QLabel("Change Direct Lead To")
         self.gr_group_lead_dropdown = QComboBox()
         self.gr_group_lead_dropdown.addItems(self.names_list_w_na)
 
@@ -98,11 +117,11 @@ class CustomWindow(QMainWindow):
         gr_main_grid_layout.addWidget(change_to_group_lead_label, 3, 0)
         gr_main_grid_layout.addWidget(self.gr_group_lead_dropdown, 3, 1)
 
-        current_legacy_lead_label = QLabel("Current Legacy Lead")
+        current_legacy_lead_label = QLabel("Current Second Lead")
         self.gr_current_legacy_lead_text = QLineEdit(gui_config.DEFAULT_VALUE)
         self.gr_current_legacy_lead_text.setReadOnly(True)
 
-        change_to_legacy_lead_label = QLabel("Change Legacy Lead To")
+        change_to_legacy_lead_label = QLabel("Change Second Lead To")
         self.gr_legacy_group_lead_dropdown = QComboBox()
         self.gr_legacy_group_lead_dropdown.addItems(self.names_list_w_na)
 
@@ -111,9 +130,17 @@ class CustomWindow(QMainWindow):
         gr_main_grid_layout.addWidget(change_to_legacy_lead_label, 3, 2)
         gr_main_grid_layout.addWidget(self.gr_legacy_group_lead_dropdown, 3, 3)
 
+        #spacer = QSpacerItem(400, 400, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        #gr_main_grid_layout.addWidget(spacer, 6, 0)
+        #gr_main_grid_layout.addStretch()
+
         self.create_relationship_button = QPushButton("CREATE")
         self.update_relationship_button = QPushButton("UPDATE")
         self.delete_relationship_button = QPushButton("DELETE")
+
+        #self.create_relationship_button.setStyleSheet("background-color: green;")
+        #self.update_relationship_button.setStyleSheet("background-color: orange;")
+        #self.delete_relationship_button.setStyleSheet("background-color: red;")
 
         # Default as disabled
         self.create_relationship_button.setEnabled(False)
@@ -125,13 +152,12 @@ class CustomWindow(QMainWindow):
         self.update_relationship_button.clicked.connect(self.update_relationship_button_clicked)
         self.delete_relationship_button.clicked.connect(self.delete_relationship_button_clicked)
 
-        gr_main_grid_layout.addWidget(self.create_relationship_button, 4, 3, 1, 1)
-        gr_main_grid_layout.addWidget(self.update_relationship_button, 5, 3, 1, 1)
-        gr_main_grid_layout.addWidget(self.delete_relationship_button, 6, 3, 1, 1)
+        gr_main_grid_layout.addWidget(self.create_relationship_button, 7, 3, 1, 1)
+        gr_main_grid_layout.addWidget(self.update_relationship_button, 8, 3, 1, 1)
+        gr_main_grid_layout.addWidget(self.delete_relationship_button, 9, 3, 1, 1)
 
-        gr_main_grid_layout.setRowStretch(0, 10)
-        gr_main_grid_layout.setRowStretch(1, 0)
-
+        #gr_main_grid_layout.setRowStretch(3, 1000)
+        #gr_main_grid_layout.setHorizontalSpacing(80)
 
         self.group_relationships_tab_widget.setLayout(gr_main_grid_layout)
 
@@ -139,6 +165,7 @@ class CustomWindow(QMainWindow):
         self.sales_person_attribs_tab_widget = QWidget(self)
 
         sp_main_grid_layout = QGridLayout()
+        sp_main_grid_layout.setHorizontalSpacing(80)
 
         sp_sales_person_dropdown_label = QLabel("Sales Person")
 
@@ -233,6 +260,7 @@ class CustomWindow(QMainWindow):
         self.main_grid_layout = QGridLayout()
 
         sales_person_dropdown_label = QLabel("Sales Person")
+        sales_person_dropdown_label.setFont(self.bold_font)
         self.sales_person_dropdown_select = QComboBox()
 
         # Add Sales Person Names to dropdown
@@ -243,6 +271,7 @@ class CustomWindow(QMainWindow):
 
         # Summary Data
         summary_header = QLabel("Summary")
+        summary_header.setFont(self.bold_font)
         completed_jobs_label = QLabel("Num Completed Jobs:")
         self.completed_jobs_display = QLineEdit()
         self.completed_jobs_display.setReadOnly(True)
@@ -259,8 +288,8 @@ class CustomWindow(QMainWindow):
         self.current_reward_tier_display.setReadOnly(True)
         self.current_reward_tier_display.setText(spc.ProgramTiers.TIER_1A)
 
-        group_lead_label = QLabel("Group Lead")
-        legacy_group_lead_label = QLabel("Legacy Group Lead")
+        group_lead_label = QLabel("Direct Lead")
+        legacy_group_lead_label = QLabel("Second Lead")
         self.group_lead_name_text = QLineEdit()
         self.group_lead_name_text.setText(gui_config.DEFAULT_VALUE)
         self.group_lead_name_text.setReadOnly(True)
@@ -269,6 +298,7 @@ class CustomWindow(QMainWindow):
         self.legacy_group_lead_name_text.setReadOnly(True)
 
         unprocessed_jobs_label = QLabel("Unprocessed Jobs")
+        unprocessed_jobs_label.setFont(self.bold_font)
         self.unprocessed_jobs_list = QComboBox()
 
         self.unprocessed_jobs_list.currentIndexChanged.connect(self.on_unprocessed_jobs_selection_change)
@@ -282,17 +312,18 @@ class CustomWindow(QMainWindow):
         self.job_eligible_checkbox = QCheckBox()
         self.job_eligible_checkbox.stateChanged.connect(self.on_job_eligibility_changed)
 
-        group_lead_payable_label = QLabel("Payable -- Group Lead")
+        group_lead_payable_label = QLabel("Payable -- Direct Lead")
         self.group_lead_payable_amount = QLineEdit()
         self.group_lead_payable_amount.setReadOnly(True)
         self.group_lead_payable_amount.setText(str(gui_config.ZERO_DEFAULT))
 
-        legacy_lead_payable_label = QLabel("Payable -- Legacy Lead")
+        legacy_lead_payable_label = QLabel("Payable -- Second Lead")
         self.legacy_lead_payable_amount = QLineEdit()
         self.legacy_lead_payable_amount.setReadOnly(True)
         self.legacy_lead_payable_amount.setText(str(gui_config.ZERO_DEFAULT))
 
         self.mark_job_as_processed_button = QPushButton("Mark Job as 'Processed'")
+        self.mark_job_as_processed_button.setStyleSheet("background-color: green;")
         self.mark_job_as_processed_button.clicked.connect(self.on_update_job_as_processed_button_clicked)
 
         self.main_grid_layout.addWidget(sales_person_dropdown_label, 0, 0)
