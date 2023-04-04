@@ -32,12 +32,16 @@ def return_reward_tier_for_sales_person(num_closed_contractor_jobs, num_closed_t
 
 
 def revise_compensation_tier_based_on_overwrite(database_name, contractor_id, num_closed_contractor_jobs,
-            num_closed_team_jobs, has_direct_recruit):
+            num_closed_team_jobs, has_direct_recruit, existing_conn=None):
     """Make sure that the comp tier is at minimum the overwritten level (if one exists)"""
     natural_tier = return_reward_tier_for_sales_person(num_closed_contractor_jobs,
-                                                       num_closed_team_jobs, has_direct_recruit)
-    
-    contractor_overwrite = return_contractor_rewards_tier_overwrite(database_name, contractor_id)
+                                                        num_closed_team_jobs, has_direct_recruit)
+
+    if not existing_conn:
+        contractor_overwrite = return_contractor_rewards_tier_overwrite(database_name, contractor_id)
+
+    else:
+        contractor_overwrite = return_contractor_rewards_tier_overwrite(database_name, contractor_id, existing_conn=existing_conn)
 
     if contractor_overwrite is None:
         return natural_tier

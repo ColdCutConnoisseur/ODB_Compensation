@@ -11,26 +11,43 @@ import gui_config
 import sales_people_config as spc
 
 
-def fetch_current_job_count_for_contractor(database_name, contractor_id):
+def fetch_current_job_count_for_contractor(database_name, contractor_id, existing_conn=None):
     """This will be all initial jobs + jobs deemed 'closed' and 'processed'"""
 
-    # Fetch initial job count from 'sales_person_attribs' table
-    initial_job_count = return_contractor_initial_job_count(database_name, contractor_id)
+    if not existing_conn:
+        # Fetch initial job count from 'sales_person_attribs' table
+        initial_job_count = return_contractor_initial_job_count(database_name, contractor_id)
 
-    processed_jobs_count =\
-        return_all_closed_and_processed_jobs_count_for_employee(database_name, contractor_id)
+        processed_jobs_count =\
+            return_all_closed_and_processed_jobs_count_for_employee(database_name, contractor_id)
+
+    else:
+        initial_job_count = return_contractor_initial_job_count(database_name, contractor_id, existing_conn=existing_conn)
+
+        processed_jobs_count =\
+            return_all_closed_and_processed_jobs_count_for_employee(database_name, contractor_id, existing_conn=existing_conn)
 
     return initial_job_count + processed_jobs_count
 
-def fetch_team_job_count(database_name, contractor_id):
+
+
+def fetch_team_job_count(database_name, contractor_id, existing_conn=None):
     """"""
-    team_ids = return_team_ids_for_counting_team_jobs(database_name, contractor_id)
+    if existing_conn:
+        team_ids = return_team_ids_for_counting_team_jobs(database_name, contractor_id, existing_conn=existing_conn)
+
+    else:
+        team_ids = return_team_ids_for_counting_team_jobs(database_name, contractor_id)
 
     total_team_jobs = 0
     
     for con_id in team_ids:
 
-        count_for_id = fetch_current_job_count_for_contractor(database_name, con_id)
+        if existing_conn:
+            count_for_id = fetch_current_job_count_for_contractor(database_name, con_id, existing_conn=existing_conn)
+
+        else:
+            count_for_id = fetch_current_job_count_for_contractor(database_name, con_id)
 
         total_team_jobs += count_for_id
 

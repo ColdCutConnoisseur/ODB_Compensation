@@ -82,8 +82,12 @@ def create_or_update_attributes_record(database_name, sales_person_id,
 
 
 # QUERIES
-def return_contractor_initial_job_count(database_name, sales_person_id):
-    conn = connect_to_db(database_name)
+def return_contractor_initial_job_count(database_name, sales_person_id, existing_conn=None):
+    if existing_conn:
+        conn = existing_conn
+
+    else:
+        conn = connect_to_db(database_name)
 
     cur = conn.cursor()
 
@@ -101,13 +105,19 @@ def return_contractor_initial_job_count(database_name, sales_person_id):
         returned_record = list(returned_record)[0]
 
     cur.close()
-    conn.close()
+
+    if not existing_conn:
+        conn.close()
 
     return returned_record
 
 
-def return_contractor_rewards_tier_overwrite(database_name, sales_person_id):
-    conn = connect_to_db(database_name)
+def return_contractor_rewards_tier_overwrite(database_name, sales_person_id, existing_conn=None):
+    if existing_conn:
+        conn = existing_conn
+
+    else:
+        conn = connect_to_db(database_name)
 
     cur = conn.cursor()
 
@@ -122,13 +132,19 @@ def return_contractor_rewards_tier_overwrite(database_name, sales_person_id):
         returned_record = list(returned_record)[0]
 
     cur.close()
-    conn.close()
+
+    if not existing_conn:
+        conn.close()
 
     return returned_record
 
 
-def return_contractor_has_direct_recruit(database_name, sales_person_id):
-    conn = connect_to_db(database_name)
+def return_contractor_has_direct_recruit(database_name, sales_person_id, existing_conn=None):
+    if existing_conn:
+        conn = existing_conn
+
+    else:
+        conn = connect_to_db(database_name)
 
     cur = conn.cursor()
 
@@ -146,7 +162,9 @@ def return_contractor_has_direct_recruit(database_name, sales_person_id):
         returned_record = False
 
     cur.close()
-    conn.close()
+
+    if not existing_conn:
+        conn.close()
 
     return returned_record
 

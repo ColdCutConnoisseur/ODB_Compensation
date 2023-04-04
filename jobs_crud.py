@@ -171,8 +171,13 @@ def return_all_closed_jobs_count_for_employee(database_name, employee_id):
 
     return closed_jobs_count
 
-def return_all_closed_and_processed_jobs_count_for_employee(database_name, employee_id):
-    conn = connect_to_db(database_name)
+def return_all_closed_and_processed_jobs_count_for_employee(database_name, employee_id, existing_conn=None):
+    if existing_conn:
+        conn = existing_conn
+
+    else:
+        conn = connect_to_db(database_name)
+
     cur = conn.cursor()
 
     count_query = """SELECT COUNT(JOB_ID) FROM closed_jobs
@@ -184,7 +189,9 @@ def return_all_closed_and_processed_jobs_count_for_employee(database_name, emplo
     closed_and_processed_jobs_count = list(cur.fetchone())[0]
 
     cur.close()
-    conn.close()
+
+    if not existing_conn:
+        conn.close()
 
     return closed_and_processed_jobs_count
 

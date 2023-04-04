@@ -3,7 +3,7 @@ import time
 from decimal import Decimal
 
 from PyQt6.QtGui import QFont, QStandardItemModel, QStandardItem
-from PyQt6.QtCore import QSize, QModelIndex
+from PyQt6.QtCore import QSize
 from PyQt6.QtWidgets import (QApplication,
                              QMainWindow,
                              QWidget,
@@ -16,9 +16,7 @@ from PyQt6.QtWidgets import (QApplication,
                              QTabWidget,
                              QPushButton,
                              QCheckBox,
-                             QTreeView,
-                             QSpacerItem,
-                             QSizePolicy)
+                             QTreeView)
 
 from sales_people_crud import update_sales_people_table, return_sales_people_ids_and_names_as_dict
 from sales_group_relationships_crud import (retrieve_group_relationship_by_sales_person,
@@ -32,7 +30,7 @@ from sales_person_attribs_crud import (retrieve_attributes_record,
 from utility_functions import (fetch_current_job_count_for_contractor,
                                fetch_team_job_count)
 from tier_classifier import revise_compensation_tier_based_on_overwrite
-from jobs_crud import update_jobs_table, return_unprocessed_jobs, update_job_as_processed
+from jobs_crud import update_jobs_table, return_unprocessed_jobs, update_job_as_processed, connect_to_db
 
 import sales_people_config as spc
 import gui_config
@@ -57,7 +55,7 @@ class CustomWindow(QMainWindow):
 
         self.bold_and_spaced = QFont()
         self.bold_and_spaced.setBold(True)
-        self.bold_and_spaced.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 3)
+        self.bold_and_spaced.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 1.5)
 
         self.big_and_bold_font = QFont()
         self.big_and_bold_font.setBold(True)
@@ -93,11 +91,11 @@ class CustomWindow(QMainWindow):
 
         gr_main_grid_layout.addWidget(self.gr_sales_person_dropdown_select, 0, 1)
 
-        group_lead_section_label = QLabel("DIRECT LEAD")
+        group_lead_section_label = QLabel("Direct Lead")
         group_lead_section_label.setFont(self.bold_and_spaced)
         group_lead_section_label.setFixedSize(200, 50)
 
-        legacy_lead_section_label = QLabel("SECOND LEAD")
+        legacy_lead_section_label = QLabel("Second Lead")
         legacy_lead_section_label.setFont(self.bold_and_spaced)
         legacy_lead_section_label.setFixedSize(200, 50)
 
@@ -551,17 +549,17 @@ class CustomWindow(QMainWindow):
 
         jobs_as_strings = [str(j_num) for j_num in self.unprocessed_job_mapping.keys()]
 
-        print("Call to 'clear'")
+        print("Call to clear 'jobs' list")
         self.unprocessed_jobs_list.clear()
         print("Call made successfully!")
 
-        print("Callt to add items...")
+        print("Call to add 'job' items...")
         self.unprocessed_jobs_list.addItems(jobs_as_strings)
         print("Items added!")
 
-        print(f"JOB COUNT: {self.unprocessed_jobs_list.count()}")
+        print(f"Unprocessed Job Count: {self.unprocessed_jobs_list.count()}")
 
-        print("DEBUG: JOBS LIST UPDATED!")
+        print("DEBUG: Jobs List Updated!")
 
     def _change_to_appropriate_sales_person_for_unprocessed_job(self):
         # Automatically switch to sales_person for first unhandled_job
@@ -702,7 +700,7 @@ class CustomWindow(QMainWindow):
     def on_main_page_sales_person_changed(self):
         self._refresh_main_page()
         
-    def on_refresh_org_chart(self):
+    def DEPRon_refresh_org_chart(self):
         currently_selected_name = self.org_sales_person_dropdown_select.currentText()
 
         sales_person_id = self._return_attributable_id_for_name(currently_selected_name)
@@ -766,6 +764,93 @@ class CustomWindow(QMainWindow):
                 gc_tier = QStandardItem(gc_current_tier)
 
                 new_item.appendRow([gc_item, gc_job_count, gc_team_job_count, gc_tier])
+
+        self.org_tree.setModel(tree_model)
+        self.org_tree.expandAll()
+        self.org_tree.setColumnWidth(0, 400)
+
+    def on_refresh_org_chart(self):
+        currently_selected_name = self.org_sales_person_dropdown_select.currentText()
+        sales_person_id = self._return_attributable_id_for_name(currently_selected_name)
+
+        db_conn = connect_to_db(self.database_name)
+
+        children = fetch_all_people_one_level_down(self.database_name, sales_person_id, existing_conn=db_conn)
+
+        tree_model = QStandardItemModel()
+        root_node = tree_model.invisibleRootItem()
+
+        parent_sales_person_name = QStandardItem(currently_selected_name)
+        parent_font = QFont()
+        parent_font.setUnderline(True)
+        parent_font.setBold(True)
+        parent_font.setPixelSize(18)
+        parent_sales_person_name.setFont(parent_font)
+
+        parent_ind_jobs_count = fetch_current_job_count_for_contractor(self.database_name, sales_person_id, existing_conn=db_conn)
+        parent_team_jobs_count = fetch_team_job_count(self.database_name, sales_person_id, existing_conn=db_conn)
+        parent_has_recruit = return_contractor_has_direct_recruit(self.database_name, sales_person_id, existing_conn=db_conn)
+        parent_current_tier = revise_compensation_tier_based_on_overwrite(self.database_name, sales_person_id,
+                                                        parent_ind_jobs_count, parent_team_jobs_count,
+                                                        parent_has_recruit, existing_conn=db_conn)
+
+        root_row = [parent_sales_person_name,
+                    QStandardItem(str(parent_ind_jobs_count)),
+                    QStandardItem(str(parent_team_jobs_count)),
+                    QStandardItem(parent_current_tier)]
+
+        root_node.appendRow(root_row)
+        
+        for child in children:
+            t_name = self._return_attributable_name_for_id(child)
+
+            individual_job_count = fetch_current_job_count_for_contractor(self.database_name, child, existing_conn=db_conn)
+            team_job_count = fetch_team_job_count(self.database_name, child, existing_conn=db_conn)
+            has_direct_recruit = return_contractor_has_direct_recruit(self.database_name, child, existing_conn=db_conn)
+
+            current_tier = revise_compensation_tier_based_on_overwrite(self.database_name, child,
+                                                        individual_job_count, team_job_count,
+                                                        has_direct_recruit, existing_conn=db_conn)
+            
+            new_item = QStandardItem(t_name)
+            child_font = QFont()
+            child_font.setBold(True)
+            child_font.setPixelSize(15)
+            new_item.setFont(child_font)
+
+
+            job_count = QStandardItem(str(individual_job_count))
+            team_jobs = QStandardItem(str(team_job_count))
+            tier = QStandardItem(current_tier)
+
+            child_row = [new_item, job_count, team_jobs, tier]
+
+            parent_sales_person_name.appendRow(child_row)
+
+            grandchildren = fetch_all_people_one_level_down(self.database_name, child, existing_conn=db_conn)
+
+            for gc in grandchildren:
+                gc_name = self._return_attributable_name_for_id(gc)
+
+                gc_job_count_fetch = fetch_current_job_count_for_contractor(self.database_name, gc, existing_conn=db_conn)
+                gc_team_job_count_fetch = fetch_team_job_count(self.database_name, gc, existing_conn=db_conn)
+                gc_has_recruit_fetch = return_contractor_has_direct_recruit(self.database_name, gc, existing_conn=db_conn)
+
+                gc_current_tier = revise_compensation_tier_based_on_overwrite(self.database_name, gc,
+                                                            gc_job_count_fetch, gc_team_job_count_fetch,
+                                                            gc_has_recruit_fetch, existing_conn=db_conn)
+
+                gc_item = QStandardItem(gc_name)
+                gc_job_count = QStandardItem(str(gc_job_count_fetch))
+                gc_team_job_count = QStandardItem(str(gc_team_job_count_fetch))
+                gc_tier = QStandardItem(gc_current_tier)
+
+                new_item.appendRow([gc_item, gc_job_count, gc_team_job_count, gc_tier])
+
+        db_conn.commit()
+        db_conn.close()
+
+        tree_model.setHorizontalHeaderLabels(['Contractor', 'Ind. Jobs', 'Team Jobs', 'Reward Tier'])
 
         self.org_tree.setModel(tree_model)
         self.org_tree.expandAll()

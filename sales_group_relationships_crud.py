@@ -119,8 +119,13 @@ def unique_values(input_list):
     unique = list(set(input_list))
     return unique
 
-def fetch_all_people_one_level_down(database_name, sales_person_id):
-    conn = connect_to_db(database_name)
+def fetch_all_people_one_level_down(database_name, sales_person_id, existing_conn=None):
+    if not existing_conn:
+        conn = connect_to_db(database_name)
+
+    else:
+        conn = existing_conn
+
     cur = conn.cursor()
 
     # Query where sales person is legacy_lead
@@ -146,7 +151,9 @@ def fetch_all_people_one_level_down(database_name, sales_person_id):
     combined_list = unique_values(combined_list)
 
     cur.close()
-    conn.close()
+
+    if not existing_conn:
+        conn.close()
 
     return combined_list
 
@@ -163,8 +170,13 @@ def fetch_two_level_relationships(database_name, sales_person_id):
     grandchildren = unique_values(grandchildren)
     return [children, grandchildren]
 
-def fetch_sales_person_and_group_lead_where_contractor_is_legacy(database_name, sales_person_id):
-    conn = connect_to_db(database_name)
+def fetch_sales_person_and_group_lead_where_contractor_is_legacy(database_name, sales_person_id, existing_conn=None):
+    if existing_conn:
+        conn = existing_conn
+
+    else:
+        conn = connect_to_db(database_name)
+
     cur = conn.cursor()
 
     # Query where sales person id is legacy_lead
@@ -177,12 +189,19 @@ def fetch_sales_person_and_group_lead_where_contractor_is_legacy(database_name, 
     fetched_team_ids = unique_values([list(tup)[0] for tup in fetched_team_ids])
 
     cur.close()
-    conn.close()
+
+    if not existing_conn:
+        conn.close()
 
     return fetched_team_ids
 
-def fetch_sales_person_where_contractor_is_group_lead(database_name, sales_person_id):
-    conn = connect_to_db(database_name)
+def fetch_sales_person_where_contractor_is_group_lead(database_name, sales_person_id, existing_conn=None):
+    if existing_conn:
+        conn = existing_conn
+
+    else:
+        conn = connect_to_db(database_name)
+
     cur = conn.cursor()
 
     # Query where sales person id is group_lead
@@ -195,13 +214,20 @@ def fetch_sales_person_where_contractor_is_group_lead(database_name, sales_perso
     fetched_team_ids = unique_values([list(tup)[0] for tup in fetched_team_ids])
 
     cur.close()
-    conn.close()
+
+    if not existing_conn:
+        conn.close()
 
     return fetched_team_ids
 
-def return_team_ids_for_counting_team_jobs(database_name, sales_person_id):
-    as_legacy = fetch_sales_person_and_group_lead_where_contractor_is_legacy(database_name, sales_person_id)
-    as_group_lead = fetch_sales_person_where_contractor_is_group_lead(database_name, sales_person_id)
+def return_team_ids_for_counting_team_jobs(database_name, sales_person_id, existing_conn=None):
+    if existing_conn:
+        as_legacy = fetch_sales_person_and_group_lead_where_contractor_is_legacy(database_name, sales_person_id, existing_conn=existing_conn)
+        as_group_lead = fetch_sales_person_where_contractor_is_group_lead(database_name, sales_person_id, existing_conn=existing_conn)
+
+    else:
+        as_legacy = fetch_sales_person_and_group_lead_where_contractor_is_legacy(database_name, sales_person_id)
+        as_group_lead = fetch_sales_person_where_contractor_is_group_lead(database_name, sales_person_id)
 
     combined_list = as_legacy + as_group_lead
 
