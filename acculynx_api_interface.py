@@ -240,7 +240,8 @@ def get_all_closed_jobs_since_observe_date():
             'pageStartIndex' : results_counter,
             'startDate' : '2023-03-23',
             'dateFilterType' : 'MilestoneDate',
-            'milestones' : 'closed'
+            'milestones' : 'closed',
+            'sortBy' : 'MilestoneDate',
         }
 
         r = requests.get(ACCULYNX_API_BASE_URL + endpoint, params=parameters, auth=AcculynxAuth())
