@@ -6,7 +6,7 @@ Software to ease the process of tracking payouts and tier requirements for sales
 <br></br>
 
 ## Normal Workflow
-On the main __'Rewards Calculator'__ tab, unprocessed jobs will appear in the __'unprocessed jobs'__ dropdown.
+On the main __'Rewards Calculator'__ tab, unprocessed jobs will appear in the __'unprocessed jobs'__ dropdown.  They are sorted by *'MilestoneDate'* in ascending order (in order of jobs being closed).
 
 <img src="./app_screenshots/unprocessed_jobs_list.png" alt="Jobs-List" width=600 height=390>
 
@@ -96,10 +96,18 @@ In order to view the org chart, navigate to the 'Org Chart' tab in the app.  Thi
 <br></br>
 <br></br>
 
-## Using pgAdmin4 To View Database Tables
-<img src="./app_screenshots/pgadmin_app_icon.png" alt="pg-Icon" width=180 height=50>
+## pgAdmin4
+
+### Setup
+Windows download: https://www.pgadmin.org/download/pgadmin-4-windows/
+
+Mac download: https://www.pgadmin.org/download/pgadmin-4-macos/
+
+### Using pgAdmin4 To View Database Tables
 
 Open up the pgAdmin4 app and click on the 'aws-odb-compensation' database.
+<br></br>
+<img src="./app_screenshots/pgadmin_app_icon.png" alt="pg-Icon" width=180 height=50>
 <br></br>
 <img src="./app_screenshots/database_view.png" alt="DB-Icon" width=250 height=220>
 <br></br>
@@ -154,6 +162,7 @@ test_sales_person_attribs.py
 
 ## TODO
 - [ ] Set 'Has Recruit(s)? attributes for all contractors
+- [ ] Find a way to pull 'Gross Profit' amounts from Acculynx API
 
 ## Considerations
 - [ ] Order of jobs in that 'unprocessed' jobs list on main tab -- this will have implications for comp
