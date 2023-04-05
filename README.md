@@ -1,6 +1,11 @@
 
 # ODB 'Rewards Program' Calculator
 Software to ease the process of tracking payouts and tier requirements for sales contractors within the org.
+
+<br></br>
+<img src="./app_screenshots/desktop_app_snap.png" alt="Desktop-App" width=300 height=190>
+<br></br>
+
 <br></br>
 <img src="./app_screenshots/main_tab.png" alt="Overview" width=600 height=390>
 <br></br>
